@@ -10,8 +10,18 @@ export default function Home() {
   const [totalCount, setTotalCount] = useState(0);
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [schoolGroup, setSchoolGroup] = useState("");
+  const [studentName, setStudentName] = useState("");
 
   useEffect(() => {
+    try {
+      const profile = JSON.parse(window.localStorage.getItem("prayer-tree-profile") ?? "null") as { schoolGroup?: string; name?: string } | null;
+      if (profile?.schoolGroup) setSchoolGroup(profile.schoolGroup);
+      if (profile?.name) setStudentName(profile.name);
+    } catch {
+      window.localStorage.removeItem("prayer-tree-profile");
+    }
+
     fetch("/api/prayers").then(async (response) => await response.json() as { configured?: boolean; total?: number }).then((data) => {
       if (data.configured && typeof data.total === "number") setTotalCount(data.total);
       else {
@@ -29,11 +39,12 @@ export default function Home() {
     event.preventDefault();
     setSubmitting(true);
     const form = new FormData(event.currentTarget);
+    window.localStorage.setItem("prayer-tree-profile", JSON.stringify({ schoolGroup, name: studentName }));
     try {
       const response = await fetch("/api/prayers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ schoolGroup: form.get("schoolGroup"), name: form.get("name"), prayerDate: form.get("prayerDate"), prayerCount }),
+        body: JSON.stringify({ schoolGroup, name: studentName, prayerDate: form.get("prayerDate"), prayerCount }),
       });
       if (!response.ok) throw new Error("database unavailable");
       const data = await response.json() as { total: number };
@@ -82,14 +93,15 @@ export default function Home() {
 
       <label className="field">
         <span>학년 · 반</span>
-        <select name="schoolGroup" defaultValue="교사">
+        <select name="schoolGroup" value={schoolGroup} onChange={(event) => { setSchoolGroup(event.target.value); setSaved(false); }} required>
+          <option value="" disabled>학년 · 반 선택</option>
           <option>1학년</option><option>2학년</option><option>3학년</option><option>교사</option>
         </select>
       </label>
 
       <label className="field">
         <span>이름</span>
-        <input name="name" type="text" defaultValue="박성호" required />
+        <input name="name" type="text" value={studentName} onChange={(event) => { setStudentName(event.target.value); setSaved(false); }} autoComplete="name" placeholder="이름을 입력해 주세요" required />
       </label>
 
       <label className="field">
