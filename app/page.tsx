@@ -1,65 +1,116 @@
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
-const prayerTopics = [
-  "가족을 위한 기도", "친구를 위한 기도", "학교를 위한 기도", "선생님을 위한 기도", "아픈 이웃을 위한 기도",
-  "감사 기도", "회개 기도", "나라를 위한 기도", "교회를 위한 기도", "나의 꿈을 위한 기도",
-];
+const GOAL = 5000;
+const LEAF_COUNT = 60;
 
 export default function Home() {
-  const [prayerCount, setPrayerCount] = useState(0);
-  const totalPrayers = 10;
-  const progress = (prayerCount / totalPrayers) * 100;
-  const addPrayer = () => setPrayerCount((count) => Math.min(count + 1, totalPrayers));
+  const [prayerCount, setPrayerCount] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [saved, setSaved] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/prayers").then(async (response) => await response.json() as { configured?: boolean; total?: number }).then((data) => {
+      if (data.configured && typeof data.total === "number") setTotalCount(data.total);
+      else {
+        const storedCount = Number(window.localStorage.getItem("prayer-tree-total") ?? 0);
+        if (Number.isFinite(storedCount)) setTotalCount(Math.min(Math.max(storedCount, 0), GOAL));
+      }
+    }).catch(() => undefined);
+  }, []);
+
+  const progress = Math.min((totalCount / GOAL) * 100, 100);
+  const filledLeaves = totalCount === 0 ? 0 : Math.max(1, Math.ceil((totalCount / GOAL) * LEAF_COUNT));
+  const stage = progress >= 100 ? "기도나무 완성" : progress >= 70 ? "열매 맺는 중" : progress >= 35 ? "잎이 자라는 중" : progress > 0 ? "새싹이 자라는 중" : "첫 기도를 기다려요";
+
+  const submitPrayer = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitting(true);
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await fetch("/api/prayers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schoolGroup: form.get("schoolGroup"), name: form.get("name"), prayerDate: form.get("prayerDate"), prayerCount }),
+      });
+      if (!response.ok) throw new Error("database unavailable");
+      const data = await response.json() as { total: number };
+      setTotalCount(data.total);
+    } catch {
+      const nextTotal = Math.min(totalCount + prayerCount, GOAL);
+      setTotalCount(nextTotal);
+      window.localStorage.setItem("prayer-tree-total", String(nextTotal));
+    } finally {
+      setSaved(true);
+      setSubmitting(false);
+    }
+  };
 
   return <main>
-    <header className="nav">
-      <a className="brand" href="#top" aria-label="기도나무 처음으로">기도<span>나무</span></a>
-      <nav aria-label="주요 메뉴"><a href="#tree">나의 기도</a><a href="#topics">기도 제목</a></nav>
-      <a className="primary navCta" href="#tree">기도 시작하기</a>
-    </header>
-
-    <section className="hero" id="top">
-      <p className="eyebrow">하루 한 번, 마음을 모으는 시간</p>
-      <h1>열 번의 기도로<br />나무를 활짝 피워요</h1>
-      <p className="heroCopy">기도할 때마다 꽃 한 송이가 피어납니다.<br />오늘의 마음을 차곡차곡 모아 기도나무를 완성해 보세요.</p>
-      <a className="primary heroCta" href="#tree">나의 기도 기록하기</a>
+    <section className="intro">
+      <p className="audience">중등부 500명의 예배자</p>
+      <h1>기도<span>나무</span></h1>
+      <p className="description">한 번의 기도가 모여 한 그루의 나무가 됩니다.</p>
     </section>
 
-    <section className="treeSection" id="tree">
-      <div className="treeCopy">
-        <p className="eyebrow">나의 기도나무</p>
-        <h2>{prayerCount} / {totalPrayers}회 기도했어요</h2>
-        <p>기도를 마칠 때마다 꽃을 눌러 나무를 채워 주세요.</p>
-        <div className="progressTrack" role="progressbar" aria-label="기도 진행률" aria-valuemin={0} aria-valuemax={totalPrayers} aria-valuenow={prayerCount}>
+    <section className="goalCard" aria-labelledby="goal-title">
+      <div className="goalCopy">
+        <p className="goalEyebrow">우리의 공동 목표</p>
+        <h2 id="goal-title"><strong>{totalCount.toLocaleString()}회</strong><span>의 기도가 모였어요</span></h2>
+        <p>{stage}</p>
+        <div className="goalTrack" role="progressbar" aria-label="전체 기도 진행률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}>
           <span style={{ width: `${progress}%` }} />
         </div>
-        <div className="treeActions">
-          <button className="primary" onClick={addPrayer} disabled={prayerCount === totalPrayers}>{prayerCount === totalPrayers ? "기도나무 완성!" : "기도 1회 기록"}</button>
-          <button className="secondary" onClick={() => setPrayerCount(0)} disabled={prayerCount === 0}>처음부터</button>
-        </div>
       </div>
 
-      <div className="treeCard" aria-label={`꽃 ${prayerCount}송이가 핀 기도나무`}>
-        <div className="cloud cloudOne" /><div className="cloud cloudTwo" />
-        <div className="crown">
-          {Array.from({ length: totalPrayers }, (_, index) => <button
-            className={`flower ${index < prayerCount ? "bloomed" : ""}`} key={index}
-            onClick={index === prayerCount ? addPrayer : undefined}
-            aria-label={`${index + 1}번째 기도${index < prayerCount ? " 완료" : ""}`} disabled={index !== prayerCount}
-          ><span>✿</span></button>)}
+      <div className="treeVisual" aria-label={`기도 ${totalCount.toLocaleString()}회로 ${progress.toFixed(1)}퍼센트 채워진 나무`}>
+        <div className="canopy" aria-hidden="true">
+          {Array.from({ length: LEAF_COUNT }, (_, index) => <span key={index} className={index >= LEAF_COUNT - filledLeaves ? "filled" : ""} />)}
         </div>
-        <div className="trunk" /><div className="grass" />
+        <div className="treeTrunk" aria-hidden="true"><span style={{ height: `${Math.max(progress, 4)}%` }} /></div>
+        <div className="treeGround" aria-hidden="true" />
       </div>
     </section>
 
-    <section className="topics" id="topics">
-      <div className="sectionHead"><div><p className="eyebrow">무엇을 기도할까요?</p><h2>오늘의 기도 제목</h2></div><p>마음에 닿는 제목 하나를 골라 천천히 기도해 보세요.</p></div>
-      <div className="topicGrid">{prayerTopics.map((topic, index) => <article className="topicCard" key={topic}><span>{String(index + 1).padStart(2, "0")}</span><h3>{topic}</h3></article>)}</div>
-    </section>
+    <form className="prayerForm" onSubmit={submitPrayer}>
+      <div className="formHeader">
+        <h2>나의 기도 기록</h2>
+        <span className="todayBadge">오늘의 한 걸음</span>
+      </div>
 
-    <section className="join"><p>작은 기도가 모여<br />큰 사랑이 됩니다.</p><a className="primary" href="#tree">오늘의 기도 시작하기</a></section>
-    <footer><a className="brand" href="#top">기도<span>나무</span></a><p>매일 한 번, 사랑을 담아.</p><small>© 2026 기도나무</small></footer>
+      <label className="field">
+        <span>학년 · 반</span>
+        <select name="schoolGroup" defaultValue="교사">
+          <option>1학년</option><option>2학년</option><option>3학년</option><option>교사</option>
+        </select>
+      </label>
+
+      <label className="field">
+        <span>이름</span>
+        <input name="name" type="text" defaultValue="박성호" required />
+      </label>
+
+      <label className="field">
+        <span>날짜</span>
+        <input name="prayerDate" type="date" defaultValue="2026-08-30" required />
+      </label>
+
+      <fieldset className="countField">
+        <legend>기도 횟수</legend>
+        <div className="countGrid">
+          {Array.from({ length: 10 }, (_, index) => index + 1).map((count) => <button
+            type="button" key={count} className={prayerCount === count ? "selected" : ""}
+            onClick={() => { setPrayerCount(count); setSaved(false); }} aria-pressed={prayerCount === count}
+          ><strong>{count}</strong><small>회</small></button>)}
+        </div>
+      </fieldset>
+
+      <button className="submitButton" type="submit" disabled={submitting}>{submitting ? "기록 중..." : saved ? `${prayerCount}회 기도 기록 완료` : "기도 기록하기"}</button>
+      {saved && <p className="successMessage" role="status" aria-live="polite">기도 {prayerCount}회가 잘 기록되었어요!</p>}
+    </form>
+
+    <p className="closing">기도가 쌓일수록 우리의 나무가 자라납니다.</p>
   </main>;
 }
