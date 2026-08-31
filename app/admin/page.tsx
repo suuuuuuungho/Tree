@@ -221,12 +221,12 @@ export default function AdminPage() {
 
   const maxDailyValue = useMemo(() => Math.max(1, ...daily.flatMap((day) => [day.student, day.teacher, day.total])), [daily]);
 
-  const LINE_CHART_HEIGHT = 230;
-  const LINE_CHART_PAD_TOP = 20;
+  const LINE_CHART_HEIGHT = 240;
+  const LINE_CHART_PAD_TOP = 30;
   const LINE_CHART_PAD_BOTTOM = 32;
   const LINE_CHART_COL_WIDTH = 56;
   const lineChartWidth = Math.max(360, daily.length * LINE_CHART_COL_WIDTH);
-  const lineX = (index: number) => daily.length > 1 ? (index / (daily.length - 1)) * (lineChartWidth - 40) + 20 : lineChartWidth / 2;
+  const lineX = (index: number) => daily.length > 1 ? (index / (daily.length - 1)) * (lineChartWidth - 56) + 28 : lineChartWidth / 2;
   const lineY = (value: number) => {
     const plotHeight = LINE_CHART_HEIGHT - LINE_CHART_PAD_TOP - LINE_CHART_PAD_BOTTOM;
     return LINE_CHART_PAD_TOP + plotHeight - (value / maxDailyValue) * plotHeight;
@@ -381,9 +381,11 @@ export default function AdminPage() {
                 {daily.map((day) => <div className="trendCol" key={day.date}>
                   <div className="trendBars">
                     <div className="trendBarWrap">
+                      <span className="trendValue">{day.student}</span>
                       <div className="trendBar student" style={{ height: `${(day.student / maxDailyValue) * 100}%` }} title={`학생 ${day.student}회`} />
                     </div>
                     <div className="trendBarWrap">
+                      <span className="trendValue">{day.teacher}</span>
                       <div className="trendBar teacher" style={{ height: `${(day.teacher / maxDailyValue) * 100}%` }} title={`교사 ${day.teacher}회`} />
                     </div>
                   </div>
@@ -401,6 +403,9 @@ export default function AdminPage() {
                 {daily.map((day, index) => <circle key={`student-${day.date}`} cx={lineX(index)} cy={lineY(day.student)} r="4" fill="#356b1c"><title>{`학생 ${day.student}회`}</title></circle>)}
                 {daily.map((day, index) => <circle key={`teacher-${day.date}`} cx={lineX(index)} cy={lineY(day.teacher)} r="4" fill="#701c9f"><title>{`교사 ${day.teacher}회`}</title></circle>)}
                 {daily.map((day, index) => <circle key={`total-${day.date}`} cx={lineX(index)} cy={lineY(day.total)} r="5" fill="#efa400" stroke="#fff" strokeWidth="1.5"><title>{`총합 ${day.total}회`}</title></circle>)}
+                {daily.map((day, index) => <text key={`total-value-${day.date}`} x={lineX(index)} y={lineY(day.total) - 12} textAnchor="middle" fontSize="16" fontWeight="700" fill="#efa400">{day.total}</text>)}
+                {daily.map((day, index) => <text key={`teacher-value-${day.date}`} x={lineX(index) + 18} y={lineY(day.teacher) + 5} textAnchor="middle" fontSize="14" fontWeight="700" fill="#701c9f">{day.teacher}</text>)}
+                {daily.map((day, index) => <text key={`student-value-${day.date}`} x={lineX(index) - 18} y={lineY(day.student) + 5} textAnchor="middle" fontSize="14" fontWeight="700" fill="#356b1c">{day.student}</text>)}
                 {daily.map((day, index) => <text key={`label-${day.date}`} x={lineX(index)} y={LINE_CHART_HEIGHT - 12} textAnchor="middle" fontSize="14" fill="#2d241f">{shortDate(day.date)}</text>)}
               </svg>
             </div>
@@ -461,19 +466,19 @@ export default function AdminPage() {
                   const draft = getDraft(record);
                   const isDirty = draft.date !== record.date || draft.schoolGroup !== record.schoolGroup || draft.name !== record.name || draft.prayerCount !== record.prayerCount;
                   return <tr key={record.id} className={isDirty ? "editing" : ""}>
-                    <td><input type="date" value={draft.date} onChange={(event) => handleFieldChange(record, { date: event.target.value })} /></td>
-                    <td>
+                    <td data-label="날짜"><input type="date" value={draft.date} onChange={(event) => handleFieldChange(record, { date: event.target.value })} /></td>
+                    <td data-label="학년 · 반">
                       <select value={draft.schoolGroup} onChange={(event) => handleFieldChange(record, { schoolGroup: event.target.value })}>
                         {ALL_GROUPS.map((group) => <option key={group} value={group}>{group}</option>)}
                       </select>
                     </td>
-                    <td><input type="text" value={draft.name} onChange={(event) => handleFieldChange(record, { name: event.target.value })} /></td>
-                    <td>
+                    <td data-label="이름"><input type="text" value={draft.name} onChange={(event) => handleFieldChange(record, { name: event.target.value })} /></td>
+                    <td data-label="횟수">
                       <select value={draft.prayerCount} onChange={(event) => handleFieldChange(record, { prayerCount: Number(event.target.value) })}>
                         {Array.from({ length: 10 }, (_, index) => index + 1).map((count) => <option key={count} value={count}>{count}회</option>)}
                       </select>
                     </td>
-                    <td className="recordsActions">
+                    <td className="recordsActions" data-label="">
                       <button type="button" onClick={() => handleSaveRow(record)} disabled={savingId === record.id || !isDirty}>{savingId === record.id ? "저장 중..." : "저장"}</button>
                       <button type="button" className="danger" onClick={() => handleDelete(record)} disabled={deletingId === record.id}>{deletingId === record.id ? "삭제 중..." : "삭제"}</button>
                     </td>
