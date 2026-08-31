@@ -147,7 +147,7 @@ export default function Home() {
     </form>
 
     <section className="ranking" aria-labelledby="ranking-title">
-      <h2 id="ranking-title">누가 기도나무가 잘 자라도록 만들었을까요?</h2>
+      <h2 id="ranking-title">기도나무가 잘 자라도록 만든 사람들</h2>
       {ranking.length === 0 ? <p className="rankingEmpty">아직 순위에 오른 기도가 없어요.</p> : <ol className="rankingList">
         {ranking.map((entry, index) => <li key={`${entry.schoolGroup}-${entry.name}-${index}`}>
           <span className="rankingRank">{index + 1}</span>
