@@ -259,9 +259,18 @@ export default function AdminPage() {
     return { name: grade, total, participants: gradeParticipants.size, classes };
   }), [classStats, entries]);
 
+  const teacherStats = useMemo(() => {
+    const rows = entries.filter((entry) => STAFF_GROUPS.includes(entry.schoolGroup));
+    const total = rows.reduce((sum, row) => sum + row.prayerCount, 0);
+    const participants = new Set(rows.map((row) => row.name)).size;
+    return { total, participants };
+  }, [entries]);
+
   const classTable = useMemo(() => {
     if (!selectedClass) return null;
-    const rows = entries.filter((entry) => entry.schoolGroup === selectedClass);
+    const rows = selectedClass === "교사"
+      ? entries.filter((entry) => STAFF_GROUPS.includes(entry.schoolGroup))
+      : entries.filter((entry) => entry.schoolGroup === selectedClass);
     const dates = Array.from(new Set(rows.map((row) => row.date))).sort();
     const names = Array.from(new Set(rows.map((row) => row.name)));
     const matrix = new Map<string, Map<string, number>>();
@@ -450,6 +459,31 @@ export default function AdminPage() {
                 </div>)}
               </div>}
             </div>)}
+
+            <div className="classGradeGroup">
+              <button
+                type="button" className={`classGradeHeader${selectedClass === "교사" ? " open" : ""}`}
+                onClick={() => setSelectedClass((current) => current === "교사" ? null : "교사")}
+              >
+                <span>교사</span><strong>{formatStat(teacherStats.total, teacherStats.participants)}</strong>
+              </button>
+
+              {selectedClass === "교사" && classTable && <div className="classTableWrap">
+                {classTable.names.length === 0 ? <p className="adminDetailEmpty">기록 없음</p> : <div className="classTableScroll">
+                  <table className="classTable">
+                    <thead>
+                      <tr><th>이름</th>{classTable.dates.map((date) => <th key={date}>{shortDate(date)}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {classTable.names.map((name) => <tr key={name}>
+                        <td>{name}</td>
+                        {classTable.dates.map((date) => <td key={date}>{classTable.matrix.get(name)?.get(date) ?? "-"}</td>)}
+                      </tr>)}
+                    </tbody>
+                  </table>
+                </div>}
+              </div>}
+            </div>
           </div>
         </section>}
 
