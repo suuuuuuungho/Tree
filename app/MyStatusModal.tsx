@@ -43,6 +43,7 @@ export default function MyStatusModal({ onClose }: { onClose: () => void }) {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
+  const [doneMessage, setDoneMessage] = useState("");
 
   const loadRecords = async () => {
     const response = await fetch("/api/me/records");
@@ -135,7 +136,19 @@ export default function MyStatusModal({ onClose }: { onClose: () => void }) {
 
   const handleDayClick = (date: string) => {
     setActionError("");
+    setDoneMessage("");
     setSelectedDate((current) => current === date ? null : date);
+  };
+
+  const handleCancelDay = () => {
+    setActionError("");
+    setDoneMessage("");
+    setSelectedDate(null);
+  };
+
+  const handleConfirmDone = () => {
+    setDoneMessage("");
+    setSelectedDate(null);
   };
 
   const handleSaveRecord = async (record: PrayerRecord) => {
@@ -149,6 +162,7 @@ export default function MyStatusModal({ onClose }: { onClose: () => void }) {
       });
       if (!response.ok) { setActionError("저장에 실패했어요."); return; }
       await loadRecords();
+      setDoneMessage("저장했어요.");
     } finally {
       setSavingId(null);
     }
@@ -162,6 +176,7 @@ export default function MyStatusModal({ onClose }: { onClose: () => void }) {
       const response = await fetch(`/api/me/records/${record.id}`, { method: "DELETE" });
       if (!response.ok) { setActionError("삭제에 실패했어요."); return; }
       await loadRecords();
+      setDoneMessage("삭제했어요.");
     } finally {
       setDeletingId(null);
     }
@@ -250,18 +265,24 @@ export default function MyStatusModal({ onClose }: { onClose: () => void }) {
 
         {selectedDate && <div className="myStatusDayDetail">
           <h4>{selectedDate}</h4>
-          {selectedRecords.map((record) => <div className="myStatusRecordRow" key={record.id}>
-            <select
-              value={editCounts[record.id] ?? record.prayerCount}
-              onChange={(event) => setEditCounts((prev) => ({ ...prev, [record.id]: Number(event.target.value) }))}
-            >
-              {Array.from({ length: 10 }, (_, index) => index + 1).map((count) => <option key={count} value={count}>{count}회</option>)}
-            </select>
-            <div className="recordsActions">
-              <button type="button" onClick={() => handleSaveRecord(record)} disabled={savingId === record.id}>{savingId === record.id ? "저장 중..." : "저장"}</button>
-              <button type="button" className="danger" onClick={() => handleDeleteRecord(record)} disabled={deletingId === record.id}>{deletingId === record.id ? "삭제 중..." : "삭제"}</button>
-            </div>
-          </div>)}
+          {doneMessage ? <>
+            <p className="myStatusDoneMessage">{doneMessage}</p>
+            <button type="button" className="submitButton" onClick={handleConfirmDone}>확인</button>
+          </> : <>
+            {selectedRecords.map((record) => <div className="myStatusRecordRow" key={record.id}>
+              <select
+                value={editCounts[record.id] ?? record.prayerCount}
+                onChange={(event) => setEditCounts((prev) => ({ ...prev, [record.id]: Number(event.target.value) }))}
+              >
+                {Array.from({ length: 10 }, (_, index) => index + 1).map((count) => <option key={count} value={count}>{count}회</option>)}
+              </select>
+              <div className="recordsActions">
+                <button type="button" onClick={() => handleSaveRecord(record)} disabled={savingId === record.id}>{savingId === record.id ? "저장 중..." : "저장"}</button>
+                <button type="button" className="danger" onClick={() => handleDeleteRecord(record)} disabled={deletingId === record.id}>{deletingId === record.id ? "삭제 중..." : "삭제"}</button>
+              </div>
+            </div>)}
+            <button type="button" className="myStatusBack" onClick={handleCancelDay}>취소</button>
+          </>}
         </div>}
       </div>}
     </div>
