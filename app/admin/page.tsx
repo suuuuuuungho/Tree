@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type DailyStat = { date: string; total: number; student: number; teacher: number };
 type DayEntry = { schoolGroup: string; name: string; prayerCount: number };
-type Entry = { id: string; schoolGroup: string; name: string; date: string; prayerCount: number };
+type Entry = { id: string; schoolGroup: string; name: string; date: string; prayerCount: number; createdAt: string };
 type EditDraft = { schoolGroup: string; name: string; date: string; prayerCount: number };
 
 function formatStat(total: number, participants: number) {
@@ -69,6 +69,7 @@ export default function AdminPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [recordsError, setRecordsError] = useState("");
+  const [recordsSearch, setRecordsSearch] = useState("");
 
   const loadStats = async () => {
     try {
@@ -194,7 +195,13 @@ export default function AdminPage() {
     }
   };
 
-  const sortedRecords = useMemo(() => [...entries].sort((a, b) => b.date.localeCompare(a.date) || a.schoolGroup.localeCompare(b.schoolGroup) || a.name.localeCompare(b.name)), [entries]);
+  const sortedRecords = useMemo(() => {
+    const term = recordsSearch.trim().toLowerCase();
+    const filtered = term
+      ? entries.filter((entry) => entry.name.toLowerCase().includes(term) || entry.schoolGroup.toLowerCase().includes(term))
+      : entries;
+    return [...filtered].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [entries, recordsSearch]);
 
   const studentEntries = useMemo(() => dayEntries.filter((entry) => !STAFF_GROUPS.includes(entry.schoolGroup)), [dayEntries]);
   const teacherEntries = useMemo(() => dayEntries.filter((entry) => STAFF_GROUPS.includes(entry.schoolGroup)), [dayEntries]);
@@ -501,17 +508,23 @@ export default function AdminPage() {
 
         {activeTab === "records" && <section className="adminRecords">
           <h2>기록 수정</h2>
+          <input
+            type="text" className="recordsSearch" value={recordsSearch}
+            onChange={(event) => setRecordsSearch(event.target.value)}
+            placeholder="이름 또는 학년 · 반 검색"
+          />
           {recordsError && <p className="adminError">{recordsError}</p>}
-          {sortedRecords.length === 0 ? <p className="adminDetailEmpty">아직 기록이 없어요.</p> : <div className="recordsTableScroll">
+          {sortedRecords.length === 0 ? <p className="adminDetailEmpty">{recordsSearch ? "검색 결과가 없어요." : "아직 기록이 없어요."}</p> : <div className="recordsTableScroll">
             <table className="recordsTable">
               <thead>
-                <tr><th>날짜</th><th>학년 · 반</th><th>이름</th><th>횟수</th><th></th></tr>
+                <tr><th>등록시각</th><th>날짜</th><th>학년 · 반</th><th>이름</th><th>횟수</th><th></th></tr>
               </thead>
               <tbody>
                 {sortedRecords.map((record) => {
                   const draft = getDraft(record);
                   const isDirty = draft.date !== record.date || draft.schoolGroup !== record.schoolGroup || draft.name !== record.name || draft.prayerCount !== record.prayerCount;
                   return <tr key={record.id} className={isDirty ? "editing" : ""}>
+                    <td data-label="등록시각" className="recordsTimestamp">{record.createdAt}</td>
                     <td data-label="날짜"><input type="date" value={draft.date} onChange={(event) => handleFieldChange(record, { date: event.target.value })} /></td>
                     <td data-label="학년 · 반">
                       <select value={draft.schoolGroup} onChange={(event) => handleFieldChange(record, { schoolGroup: event.target.value })}>
