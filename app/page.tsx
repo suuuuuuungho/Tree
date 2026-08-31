@@ -23,6 +23,22 @@ function minutesToPrayerCount(minutes: number) {
   return count > 0 ? count : null;
 }
 
+const COUNTDOWN_TARGET = new Date(2026, 9, 11, 0, 0, 0).getTime();
+
+type Countdown = { days: number; hours: number; seconds: number; done: boolean };
+
+function getCountdown(): Countdown {
+  const diff = Math.max(0, COUNTDOWN_TARGET - Date.now());
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  const seconds = Math.floor((diff % 60000) / 1000);
+  return { days, hours, seconds, done: diff <= 0 };
+}
+
+function pad2(value: number) {
+  return String(value).padStart(2, "0");
+}
+
 export default function Home() {
   const [prayerCount, setPrayerCount] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -34,6 +50,7 @@ export default function Home() {
   const [ranking, setRanking] = useState<RankingEntry[]>([]);
   const [prayerMinutes, setPrayerMinutes] = useState("");
   const [customMinutes, setCustomMinutes] = useState("");
+  const [countdown, setCountdown] = useState<Countdown | null>(null);
 
   const isStaff = STAFF_GROUPS.includes(schoolGroup);
 
@@ -67,6 +84,12 @@ export default function Home() {
     }).catch(() => undefined);
 
     fetchRanking();
+  }, []);
+
+  useEffect(() => {
+    setCountdown(getCountdown());
+    const timer = setInterval(() => setCountdown(getCountdown()), 1000);
+    return () => clearInterval(timer);
   }, []);
 
   const progress = Math.min((totalCount / GOAL) * 100, 100);
@@ -137,6 +160,19 @@ export default function Home() {
       <p className="audience">중등부 500명의 예배자</p>
       <h1>기도<span>나무</span></h1>
       <p className="description">한 번의 기도가 모여 한 그루의 나무가 됩니다.</p>
+
+      {countdown && <div className="countdown">
+        {countdown.done ? <p className="countdownDone">10월 11일, 기도의 날이 밝았어요!</p> : <>
+          <div className="countdownBlocks">
+            <div className="countdownBlock"><strong>{pad2(countdown.days)}</strong><span>일</span></div>
+            <span className="countdownSep">-</span>
+            <div className="countdownBlock"><strong>{pad2(countdown.hours)}</strong><span>시간</span></div>
+            <span className="countdownSep">-</span>
+            <div className="countdownBlock"><strong>{pad2(countdown.seconds)}</strong><span>초</span></div>
+          </div>
+          <p className="countdownLabel">10월 11일 주일까지 남은 시간</p>
+        </>}
+      </div>}
     </section>
 
     <section className="goalCard" aria-labelledby="goal-title">
