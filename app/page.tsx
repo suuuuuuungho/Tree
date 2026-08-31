@@ -7,7 +7,7 @@ const LEAF_COUNT = 60;
 
 type RankingEntry = { schoolGroup: string; name: string; total: number };
 
-const STAFF_GROUPS = ["교사", "교역자"];
+const STAFF_GROUPS = ["교사"];
 const DURATION_OPTIONS = Array.from({ length: 10 }, (_, index) => (index + 1) * 30);
 
 function formatDuration(minutes: number) {
@@ -95,6 +95,15 @@ export default function Home() {
     setSaved(false);
     const count = minutesToPrayerCount(Number(digitsOnly));
     if (count) setPrayerCount(count);
+  };
+
+  const handlePrayerCountChange = (count: number) => {
+    setPrayerCount(count);
+    setSaved(false);
+    if (isStaff) {
+      setPrayerMinutes(String(count * 30));
+      setCustomMinutes("");
+    }
   };
 
   const submitPrayer = async (event: FormEvent<HTMLFormElement>) => {
@@ -195,7 +204,7 @@ export default function Home() {
         <div className="countGrid">
           {Array.from({ length: 10 }, (_, index) => index + 1).map((count) => <button
             type="button" key={count} className={prayerCount === count ? "selected" : ""}
-            onClick={() => { setPrayerCount(count); setSaved(false); }} aria-pressed={prayerCount === count}
+            onClick={() => handlePrayerCountChange(count)} aria-pressed={prayerCount === count}
           ><strong>{count}</strong><small>회</small></button>)}
         </div>
       </fieldset>
