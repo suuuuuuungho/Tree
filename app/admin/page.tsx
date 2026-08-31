@@ -306,33 +306,34 @@ export default function AdminPage() {
                 <span>{grade.name}</span><strong>{grade.total.toLocaleString()}회</strong>
               </button>
               {selectedGrade === grade.name && <div className="classList">
-                {grade.classes.map((cls) => <button
-                  type="button" key={cls.name}
-                  className={`classItem${selectedClass === cls.name ? " selected" : ""}`}
-                  onClick={() => setSelectedClass((current) => current === cls.name ? null : cls.name)}
-                >
-                  <span>{cls.name}</span><strong>{cls.total.toLocaleString()}회</strong>
-                </button>)}
+                {grade.classes.map((cls) => <div className="classRowGroup" key={cls.name}>
+                  <button
+                    type="button"
+                    className={`classRowHeader${selectedClass === cls.name ? " open" : ""}`}
+                    onClick={() => setSelectedClass((current) => current === cls.name ? null : cls.name)}
+                  >
+                    <span>{cls.name}</span><strong>{cls.total.toLocaleString()}회</strong>
+                  </button>
+
+                  {selectedClass === cls.name && classTable && <div className="classTableWrap">
+                    {classTable.names.length === 0 ? <p className="adminDetailEmpty">기록 없음</p> : <div className="classTableScroll">
+                      <table className="classTable">
+                        <thead>
+                          <tr><th>이름</th>{classTable.dates.map((date) => <th key={date}>{shortDate(date)}</th>)}</tr>
+                        </thead>
+                        <tbody>
+                          {classTable.names.map((name) => <tr key={name}>
+                            <td>{name}</td>
+                            {classTable.dates.map((date) => <td key={date}>{classTable.matrix.get(name)?.get(date) ?? "-"}</td>)}
+                          </tr>)}
+                        </tbody>
+                      </table>
+                    </div>}
+                  </div>}
+                </div>)}
               </div>}
             </div>)}
           </div>
-
-          {classTable && <div className="classTableWrap">
-            <h3>{selectedClass} 상세</h3>
-            {classTable.names.length === 0 ? <p className="adminDetailEmpty">기록 없음</p> : <div className="classTableScroll">
-              <table className="classTable">
-                <thead>
-                  <tr><th>이름</th>{classTable.dates.map((date) => <th key={date}>{shortDate(date)}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {classTable.names.map((name) => <tr key={name}>
-                    <td>{name}</td>
-                    {classTable.dates.map((date) => <td key={date}>{classTable.matrix.get(name)?.get(date) ?? "-"}</td>)}
-                  </tr>)}
-                </tbody>
-              </table>
-            </div>}
-          </div>}
         </section>}
       </div>
     </div>
