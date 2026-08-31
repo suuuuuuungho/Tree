@@ -25,14 +25,15 @@ function minutesToPrayerCount(minutes: number) {
 
 const COUNTDOWN_TARGET = new Date(2026, 9, 11, 0, 0, 0).getTime();
 
-type Countdown = { days: number; hours: number; seconds: number; done: boolean };
+type Countdown = { days: number; hours: number; minutes: number; seconds: number; done: boolean };
 
 function getCountdown(): Countdown {
   const diff = Math.max(0, COUNTDOWN_TARGET - Date.now());
   const days = Math.floor(diff / 86400000);
   const hours = Math.floor((diff % 86400000) / 3600000);
+  const minutes = Math.floor((diff % 3600000) / 60000);
   const seconds = Math.floor((diff % 60000) / 1000);
-  return { days, hours, seconds, done: diff <= 0 };
+  return { days, hours, minutes, seconds, done: diff <= 0 };
 }
 
 function pad2(value: number) {
@@ -167,6 +168,8 @@ export default function Home() {
             <div className="countdownBlock"><strong>{pad2(countdown.days)}</strong><span>일</span></div>
             <span className="countdownSep">-</span>
             <div className="countdownBlock"><strong>{pad2(countdown.hours)}</strong><span>시간</span></div>
+            <span className="countdownSep">-</span>
+            <div className="countdownBlock"><strong>{pad2(countdown.minutes)}</strong><span>분</span></div>
             <span className="countdownSep">-</span>
             <div className="countdownBlock"><strong>{pad2(countdown.seconds)}</strong><span>초</span></div>
           </div>
