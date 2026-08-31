@@ -12,6 +12,7 @@ export default function Home() {
   const [submitting, setSubmitting] = useState(false);
   const [schoolGroup, setSchoolGroup] = useState("");
   const [studentName, setStudentName] = useState("");
+  const [prayerDate, setPrayerDate] = useState("");
 
   useEffect(() => {
     try {
@@ -21,6 +22,12 @@ export default function Home() {
     } catch {
       window.localStorage.removeItem("prayer-tree-profile");
     }
+
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    setPrayerDate(`${yyyy}-${mm}-${dd}`);
 
     fetch("/api/prayers").then(async (response) => await response.json() as { configured?: boolean; total?: number }).then((data) => {
       if (data.configured && typeof data.total === "number") setTotalCount(data.total);
@@ -110,7 +117,7 @@ export default function Home() {
 
       <label className="field">
         <span>날짜</span>
-        <input name="prayerDate" type="date" defaultValue="2026-08-30" required />
+        <input name="prayerDate" type="date" value={prayerDate} onChange={(event) => { setPrayerDate(event.target.value); setSaved(false); }} required />
       </label>
 
       <fieldset className="countField">
