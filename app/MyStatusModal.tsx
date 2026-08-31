@@ -7,6 +7,14 @@ type Identity = { schoolGroup: string; name: string };
 type Step = "identity" | "setup" | "login" | "calendar";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
+function heatLevel(total: number | undefined) {
+  if (!total) return 0;
+  if (total <= 2) return 1;
+  if (total <= 4) return 2;
+  if (total <= 7) return 3;
+  return 4;
+}
 const SCHOOL_GROUPS = [
   "1-1반", "1-2반", "1-3반", "1-4반", "1-5반", "1-6반",
   "2-1반", "2-2반", "2-3반", "2-4반", "2-5반", "2-6반", "2-7반",
@@ -36,11 +44,6 @@ export default function MyStatusModal({ onClose }: { onClose: () => void }) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
 
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
-
   const loadRecords = async () => {
     const response = await fetch("/api/me/records");
     if (response.status === 401) { setStep("identity"); return; }
@@ -48,6 +51,21 @@ export default function MyStatusModal({ onClose }: { onClose: () => void }) {
     if (data.identity) setIdentity(data.identity);
     setRecords(data.records ?? []);
   };
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    // Resume straight into the calendar if a session cookie from an earlier visit is still valid.
+    (async () => {
+      const response = await fetch("/api/me/records");
+      if (!response.ok) return;
+      const data = await response.json() as { identity?: Identity; records?: PrayerRecord[] };
+      if (!data.identity) return;
+      setIdentity(data.identity);
+      setRecords(data.records ?? []);
+      setStep("calendar");
+    })();
+    return () => { document.body.style.overflow = ""; };
+  }, []);
 
   const handleIdentitySubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -91,18 +109,6 @@ export default function MyStatusModal({ onClose }: { onClose: () => void }) {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleLogout = async () => {
-    await fetch("/api/me/logout", { method: "POST" });
-    setIdentity(null);
-    setRecords([]);
-    setSchoolGroup("");
-    setName("");
-    setPassword("");
-    setConfirmPassword("");
-    setSelectedDate(null);
-    setStep("identity");
   };
 
   const dailyTotals = useMemo(() => {
@@ -224,7 +230,7 @@ export default function MyStatusModal({ onClose }: { onClose: () => void }) {
             const isSelected = selectedDate === cell.date;
             return <button
               type="button" key={cell.date}
-              className={`adminCalendarCell myStatusCell${total ? " hasData" : ""}${isSelected ? " selected" : ""}`}
+              className={`adminCalendarCell myStatusCell heat-${heatLevel(total)}${total ? " hasData" : ""}${isSelected ? " selected" : ""}`}
               onClick={() => total && handleDayClick(cell.date)}
               disabled={!total}
             >
@@ -232,6 +238,12 @@ export default function MyStatusModal({ onClose }: { onClose: () => void }) {
               {total ? <span className="adminCalendarTotal">{total}회</span> : <span className="adminCalendarEmpty">-</span>}
             </button>;
           })}
+        </div>
+
+        <div className="myStatusLegend">
+          <span>적음</span>
+          {[0, 1, 2, 3, 4].map((level) => <i key={level} className={`heat-${level}`} />)}
+          <span>많음</span>
         </div>
 
         {actionError && <p className="adminError">{actionError}</p>}
@@ -251,8 +263,6 @@ export default function MyStatusModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>)}
         </div>}
-
-        <button type="button" className="myStatusBack" onClick={handleLogout}>다른 이름으로 확인하기</button>
       </div>}
     </div>
   </div>;
