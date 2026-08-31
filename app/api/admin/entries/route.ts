@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   await ensureTable(sql);
 
   const rows = await sql`
-    SELECT school_group AS "schoolGroup", name, prayer_date::text AS date, prayer_count AS "prayerCount"
+    SELECT id::text AS id, school_group AS "schoolGroup", name, prayer_date::text AS date, prayer_count AS "prayerCount"
     FROM prayers
     ORDER BY prayer_date ASC, school_group ASC, name ASC
   `;

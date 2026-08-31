@@ -4,7 +4,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type DailyStat = { date: string; total: number; student: number; teacher: number };
 type DayEntry = { schoolGroup: string; name: string; prayerCount: number };
-type Entry = { schoolGroup: string; name: string; date: string; prayerCount: number };
+type Entry = { id: string; schoolGroup: string; name: string; date: string; prayerCount: number };
+type EditDraft = { schoolGroup: string; name: string; date: string; prayerCount: number };
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const STAFF_GROUPS = ["교사", "교역자"];
@@ -16,6 +17,7 @@ const STUDENT_CLASS_ORDER = [
   "신입1반", "신입2반", "신입3반", "신입4반",
 ];
 const GRADE_ORDER = ["1학년", "2학년", "3학년", "신입"];
+const ALL_GROUPS = [...STUDENT_CLASS_ORDER, "교사", "교역자"];
 
 function gradeOf(schoolGroup: string) {
   if (schoolGroup.startsWith("1-")) return "1학년";
@@ -30,11 +32,12 @@ function shortDate(date: string) {
   return `${Number(month)}/${Number(day)}`;
 }
 
-type TabKey = "daily" | "trend" | "classes";
+type TabKey = "daily" | "trend" | "classes" | "records";
 const TABS: { key: TabKey; label: string }[] = [
   { key: "daily", label: "일별 상세 내역" },
   { key: "trend", label: "일별 추이" },
   { key: "classes", label: "반별 현황" },
+  { key: "records", label: "기록 수정" },
 ];
 
 export default function AdminPage() {
@@ -57,6 +60,12 @@ export default function AdminPage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [recordsError, setRecordsError] = useState("");
 
   const loadStats = async () => {
     try {
@@ -128,6 +137,57 @@ export default function AdminPage() {
       setDayLoading(false);
     }
   };
+
+  const handleEditStart = (record: Entry) => {
+    setEditingId(record.id);
+    setEditDraft({ schoolGroup: record.schoolGroup, name: record.name, date: record.date, prayerCount: record.prayerCount });
+    setRecordsError("");
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
+    setEditDraft(null);
+  };
+
+  const handleEditSave = async (id: string) => {
+    if (!editDraft) return;
+    setSavingId(id);
+    setRecordsError("");
+    try {
+      const response = await fetch(`/api/admin/records/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editDraft),
+      });
+      if (!response.ok) {
+        setRecordsError("저장에 실패했어요.");
+        return;
+      }
+      setEditingId(null);
+      setEditDraft(null);
+      await Promise.all([loadEntries(), loadStats()]);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleDelete = async (record: Entry) => {
+    if (!window.confirm(`${record.date} · ${record.schoolGroup} · ${record.name} · ${record.prayerCount}회 기록을 삭제할까요?`)) return;
+    setDeletingId(record.id);
+    setRecordsError("");
+    try {
+      const response = await fetch(`/api/admin/records/${record.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        setRecordsError("삭제에 실패했어요.");
+        return;
+      }
+      await Promise.all([loadEntries(), loadStats()]);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const sortedRecords = useMemo(() => [...entries].sort((a, b) => b.date.localeCompare(a.date) || a.schoolGroup.localeCompare(b.schoolGroup) || a.name.localeCompare(b.name)), [entries]);
 
   const studentEntries = useMemo(() => dayEntries.filter((entry) => !STAFF_GROUPS.includes(entry.schoolGroup)), [dayEntries]);
   const teacherEntries = useMemo(() => dayEntries.filter((entry) => STAFF_GROUPS.includes(entry.schoolGroup)), [dayEntries]);
@@ -322,6 +382,8 @@ export default function AdminPage() {
                 <polyline points={teacherLinePoints} fill="none" stroke="#701c9f" strokeWidth="3" />
                 {daily.map((day, index) => <circle key={`student-${day.date}`} cx={lineX(index)} cy={lineY(day.student)} r="4" fill="#356b1c" />)}
                 {daily.map((day, index) => <circle key={`teacher-${day.date}`} cx={lineX(index)} cy={lineY(day.teacher)} r="4" fill="#701c9f" />)}
+                {daily.map((day, index) => <text key={`student-value-${day.date}`} x={lineX(index)} y={lineY(day.student) - 10} textAnchor="middle" fontSize="13" fontWeight="600" fill="#356b1c">{day.student}</text>)}
+                {daily.map((day, index) => <text key={`teacher-value-${day.date}`} x={lineX(index)} y={lineY(day.teacher) + 18} textAnchor="middle" fontSize="13" fontWeight="600" fill="#701c9f">{day.teacher}</text>)}
                 {daily.map((day, index) => <text key={`label-${day.date}`} x={lineX(index)} y={LINE_CHART_HEIGHT - 12} textAnchor="middle" fontSize="13" fill="#2d241f">{shortDate(day.date)}</text>)}
               </svg>
             </div>
@@ -367,6 +429,52 @@ export default function AdminPage() {
               </div>}
             </div>)}
           </div>
+        </section>}
+
+        {activeTab === "records" && <section className="adminRecords">
+          <h2>기록 수정</h2>
+          {recordsError && <p className="adminError">{recordsError}</p>}
+          {sortedRecords.length === 0 ? <p className="adminDetailEmpty">아직 기록이 없어요.</p> : <div className="recordsTableScroll">
+            <table className="recordsTable">
+              <thead>
+                <tr><th>날짜</th><th>학년 · 반</th><th>이름</th><th>횟수</th><th></th></tr>
+              </thead>
+              <tbody>
+                {sortedRecords.map((record) => {
+                  const isEditing = editingId === record.id;
+                  return <tr key={record.id} className={isEditing ? "editing" : ""}>
+                    {isEditing && editDraft ? <>
+                      <td><input type="date" value={editDraft.date} onChange={(event) => setEditDraft({ ...editDraft, date: event.target.value })} /></td>
+                      <td>
+                        <select value={editDraft.schoolGroup} onChange={(event) => setEditDraft({ ...editDraft, schoolGroup: event.target.value })}>
+                          {ALL_GROUPS.map((group) => <option key={group} value={group}>{group}</option>)}
+                        </select>
+                      </td>
+                      <td><input type="text" value={editDraft.name} onChange={(event) => setEditDraft({ ...editDraft, name: event.target.value })} /></td>
+                      <td>
+                        <select value={editDraft.prayerCount} onChange={(event) => setEditDraft({ ...editDraft, prayerCount: Number(event.target.value) })}>
+                          {Array.from({ length: 10 }, (_, index) => index + 1).map((count) => <option key={count} value={count}>{count}회</option>)}
+                        </select>
+                      </td>
+                      <td className="recordsActions">
+                        <button type="button" onClick={() => handleEditSave(record.id)} disabled={savingId === record.id}>{savingId === record.id ? "저장 중..." : "저장"}</button>
+                        <button type="button" onClick={handleEditCancel}>취소</button>
+                      </td>
+                    </> : <>
+                      <td>{record.date}</td>
+                      <td>{record.schoolGroup}</td>
+                      <td>{record.name}</td>
+                      <td>{record.prayerCount}회</td>
+                      <td className="recordsActions">
+                        <button type="button" onClick={() => handleEditStart(record)}>수정</button>
+                        <button type="button" className="danger" onClick={() => handleDelete(record)} disabled={deletingId === record.id}>{deletingId === record.id ? "삭제 중..." : "삭제"}</button>
+                      </td>
+                    </>}
+                  </tr>;
+                })}
+              </tbody>
+            </table>
+          </div>}
         </section>}
       </div>
     </div>
