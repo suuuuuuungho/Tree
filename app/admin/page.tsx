@@ -7,6 +7,10 @@ type DayEntry = { schoolGroup: string; name: string; prayerCount: number };
 type Entry = { id: string; schoolGroup: string; name: string; date: string; prayerCount: number };
 type EditDraft = { schoolGroup: string; name: string; date: string; prayerCount: number };
 
+function formatStat(total: number, participants: number) {
+  return `${total.toLocaleString()}회 / ${participants.toLocaleString()}명`;
+}
+
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const STAFF_GROUPS = ["교사", "교역자"];
 
@@ -61,8 +65,7 @@ export default function AdminPage() {
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
 
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, EditDraft>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [recordsError, setRecordsError] = useState("");
@@ -138,33 +141,32 @@ export default function AdminPage() {
     }
   };
 
-  const handleEditStart = (record: Entry) => {
-    setEditingId(record.id);
-    setEditDraft({ schoolGroup: record.schoolGroup, name: record.name, date: record.date, prayerCount: record.prayerCount });
+  const getDraft = (record: Entry): EditDraft => drafts[record.id] ?? { schoolGroup: record.schoolGroup, name: record.name, date: record.date, prayerCount: record.prayerCount };
+
+  const handleFieldChange = (record: Entry, patch: Partial<EditDraft>) => {
+    setDrafts((prev) => ({ ...prev, [record.id]: { ...getDraft(record), ...patch } }));
     setRecordsError("");
   };
 
-  const handleEditCancel = () => {
-    setEditingId(null);
-    setEditDraft(null);
-  };
-
-  const handleEditSave = async (id: string) => {
-    if (!editDraft) return;
-    setSavingId(id);
+  const handleSaveRow = async (record: Entry) => {
+    const draft = getDraft(record);
+    setSavingId(record.id);
     setRecordsError("");
     try {
-      const response = await fetch(`/api/admin/records/${id}`, {
+      const response = await fetch(`/api/admin/records/${record.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editDraft),
+        body: JSON.stringify(draft),
       });
       if (!response.ok) {
         setRecordsError("저장에 실패했어요.");
         return;
       }
-      setEditingId(null);
-      setEditDraft(null);
+      setDrafts((prev) => {
+        const next = { ...prev };
+        delete next[record.id];
+        return next;
+      });
       await Promise.all([loadEntries(), loadStats()]);
     } finally {
       setSavingId(null);
@@ -181,6 +183,11 @@ export default function AdminPage() {
         setRecordsError("삭제에 실패했어요.");
         return;
       }
+      setDrafts((prev) => {
+        const next = { ...prev };
+        delete next[record.id];
+        return next;
+      });
       await Promise.all([loadEntries(), loadStats()]);
     } finally {
       setDeletingId(null);
@@ -214,9 +221,9 @@ export default function AdminPage() {
 
   const maxDailyValue = useMemo(() => Math.max(1, ...daily.flatMap((day) => [day.student, day.teacher])), [daily]);
 
-  const LINE_CHART_HEIGHT = 240;
-  const LINE_CHART_PAD_TOP = 24;
-  const LINE_CHART_PAD_BOTTOM = 36;
+  const LINE_CHART_HEIGHT = 250;
+  const LINE_CHART_PAD_TOP = 30;
+  const LINE_CHART_PAD_BOTTOM = 42;
   const LINE_CHART_COL_WIDTH = 56;
   const lineChartWidth = Math.max(360, daily.length * LINE_CHART_COL_WIDTH);
   const lineX = (index: number) => daily.length > 1 ? (index / (daily.length - 1)) * (lineChartWidth - 40) + 20 : lineChartWidth / 2;
@@ -227,21 +234,29 @@ export default function AdminPage() {
   const studentLinePoints = daily.map((day, index) => `${lineX(index)},${lineY(day.student)}`).join(" ");
   const teacherLinePoints = daily.map((day, index) => `${lineX(index)},${lineY(day.teacher)}`).join(" ");
 
-  const classTotals = useMemo(() => {
-    const map = new Map<string, number>();
+  const classStats = useMemo(() => {
+    const totals = new Map<string, number>();
+    const participants = new Map<string, Set<string>>();
     for (const entry of entries) {
       if (STUDENT_CLASS_ORDER.includes(entry.schoolGroup)) {
-        map.set(entry.schoolGroup, (map.get(entry.schoolGroup) ?? 0) + entry.prayerCount);
+        totals.set(entry.schoolGroup, (totals.get(entry.schoolGroup) ?? 0) + entry.prayerCount);
+        if (!participants.has(entry.schoolGroup)) participants.set(entry.schoolGroup, new Set());
+        participants.get(entry.schoolGroup)!.add(entry.name);
       }
     }
-    return map;
+    return { totals, participants };
   }, [entries]);
 
   const gradeGroups = useMemo(() => GRADE_ORDER.map((grade) => {
-    const classes = STUDENT_CLASS_ORDER.filter((cls) => gradeOf(cls) === grade).map((cls) => ({ name: cls, total: classTotals.get(cls) ?? 0 }));
+    const classes = STUDENT_CLASS_ORDER.filter((cls) => gradeOf(cls) === grade).map((cls) => ({
+      name: cls,
+      total: classStats.totals.get(cls) ?? 0,
+      participants: classStats.participants.get(cls)?.size ?? 0,
+    }));
     const total = classes.reduce((sum, cls) => sum + cls.total, 0);
-    return { name: grade, total, classes };
-  }), [classTotals]);
+    const gradeParticipants = new Set(entries.filter((entry) => gradeOf(entry.schoolGroup) === grade).map((entry) => entry.name));
+    return { name: grade, total, participants: gradeParticipants.size, classes };
+  }), [classStats, entries]);
 
   const classTable = useMemo(() => {
     if (!selectedClass) return null;
@@ -382,9 +397,9 @@ export default function AdminPage() {
                 <polyline points={teacherLinePoints} fill="none" stroke="#701c9f" strokeWidth="3" />
                 {daily.map((day, index) => <circle key={`student-${day.date}`} cx={lineX(index)} cy={lineY(day.student)} r="4" fill="#356b1c" />)}
                 {daily.map((day, index) => <circle key={`teacher-${day.date}`} cx={lineX(index)} cy={lineY(day.teacher)} r="4" fill="#701c9f" />)}
-                {daily.map((day, index) => <text key={`student-value-${day.date}`} x={lineX(index)} y={lineY(day.student) - 10} textAnchor="middle" fontSize="13" fontWeight="600" fill="#356b1c">{day.student}</text>)}
-                {daily.map((day, index) => <text key={`teacher-value-${day.date}`} x={lineX(index)} y={lineY(day.teacher) + 18} textAnchor="middle" fontSize="13" fontWeight="600" fill="#701c9f">{day.teacher}</text>)}
-                {daily.map((day, index) => <text key={`label-${day.date}`} x={lineX(index)} y={LINE_CHART_HEIGHT - 12} textAnchor="middle" fontSize="13" fill="#2d241f">{shortDate(day.date)}</text>)}
+                {daily.map((day, index) => <text key={`student-value-${day.date}`} x={lineX(index)} y={lineY(day.student) - 12} textAnchor="middle" fontSize="17" fontWeight="700" fill="#356b1c">{day.student}</text>)}
+                {daily.map((day, index) => <text key={`teacher-value-${day.date}`} x={lineX(index)} y={lineY(day.teacher) + 22} textAnchor="middle" fontSize="17" fontWeight="700" fill="#701c9f">{day.teacher}</text>)}
+                {daily.map((day, index) => <text key={`label-${day.date}`} x={lineX(index)} y={LINE_CHART_HEIGHT - 12} textAnchor="middle" fontSize="14" fill="#2d241f">{shortDate(day.date)}</text>)}
               </svg>
             </div>
           </>}
@@ -398,7 +413,7 @@ export default function AdminPage() {
                 type="button" className={`classGradeHeader${selectedGrade === grade.name ? " open" : ""}`}
                 onClick={() => setSelectedGrade((current) => current === grade.name ? null : grade.name)}
               >
-                <span>{grade.name}</span><strong>{grade.total.toLocaleString()}회</strong>
+                <span>{grade.name}</span><strong>{formatStat(grade.total, grade.participants)}</strong>
               </button>
               {selectedGrade === grade.name && <div className="classList">
                 {grade.classes.map((cls) => <div className="classRowGroup" key={cls.name}>
@@ -407,7 +422,7 @@ export default function AdminPage() {
                     className={`classRowHeader${selectedClass === cls.name ? " open" : ""}`}
                     onClick={() => setSelectedClass((current) => current === cls.name ? null : cls.name)}
                   >
-                    <span>{cls.name}</span><strong>{cls.total.toLocaleString()}회</strong>
+                    <span>{cls.name}</span><strong>{formatStat(cls.total, cls.participants)}</strong>
                   </button>
 
                   {selectedClass === cls.name && classTable && <div className="classTableWrap">
@@ -441,35 +456,25 @@ export default function AdminPage() {
               </thead>
               <tbody>
                 {sortedRecords.map((record) => {
-                  const isEditing = editingId === record.id;
-                  return <tr key={record.id} className={isEditing ? "editing" : ""}>
-                    {isEditing && editDraft ? <>
-                      <td><input type="date" value={editDraft.date} onChange={(event) => setEditDraft({ ...editDraft, date: event.target.value })} /></td>
-                      <td>
-                        <select value={editDraft.schoolGroup} onChange={(event) => setEditDraft({ ...editDraft, schoolGroup: event.target.value })}>
-                          {ALL_GROUPS.map((group) => <option key={group} value={group}>{group}</option>)}
-                        </select>
-                      </td>
-                      <td><input type="text" value={editDraft.name} onChange={(event) => setEditDraft({ ...editDraft, name: event.target.value })} /></td>
-                      <td>
-                        <select value={editDraft.prayerCount} onChange={(event) => setEditDraft({ ...editDraft, prayerCount: Number(event.target.value) })}>
-                          {Array.from({ length: 10 }, (_, index) => index + 1).map((count) => <option key={count} value={count}>{count}회</option>)}
-                        </select>
-                      </td>
-                      <td className="recordsActions">
-                        <button type="button" onClick={() => handleEditSave(record.id)} disabled={savingId === record.id}>{savingId === record.id ? "저장 중..." : "저장"}</button>
-                        <button type="button" onClick={handleEditCancel}>취소</button>
-                      </td>
-                    </> : <>
-                      <td>{record.date}</td>
-                      <td>{record.schoolGroup}</td>
-                      <td>{record.name}</td>
-                      <td>{record.prayerCount}회</td>
-                      <td className="recordsActions">
-                        <button type="button" onClick={() => handleEditStart(record)}>수정</button>
-                        <button type="button" className="danger" onClick={() => handleDelete(record)} disabled={deletingId === record.id}>{deletingId === record.id ? "삭제 중..." : "삭제"}</button>
-                      </td>
-                    </>}
+                  const draft = getDraft(record);
+                  const isDirty = draft.date !== record.date || draft.schoolGroup !== record.schoolGroup || draft.name !== record.name || draft.prayerCount !== record.prayerCount;
+                  return <tr key={record.id} className={isDirty ? "editing" : ""}>
+                    <td><input type="date" value={draft.date} onChange={(event) => handleFieldChange(record, { date: event.target.value })} /></td>
+                    <td>
+                      <select value={draft.schoolGroup} onChange={(event) => handleFieldChange(record, { schoolGroup: event.target.value })}>
+                        {ALL_GROUPS.map((group) => <option key={group} value={group}>{group}</option>)}
+                      </select>
+                    </td>
+                    <td><input type="text" value={draft.name} onChange={(event) => handleFieldChange(record, { name: event.target.value })} /></td>
+                    <td>
+                      <select value={draft.prayerCount} onChange={(event) => handleFieldChange(record, { prayerCount: Number(event.target.value) })}>
+                        {Array.from({ length: 10 }, (_, index) => index + 1).map((count) => <option key={count} value={count}>{count}회</option>)}
+                      </select>
+                    </td>
+                    <td className="recordsActions">
+                      <button type="button" onClick={() => handleSaveRow(record)} disabled={savingId === record.id || !isDirty}>{savingId === record.id ? "저장 중..." : "저장"}</button>
+                      <button type="button" className="danger" onClick={() => handleDelete(record)} disabled={deletingId === record.id}>{deletingId === record.id ? "삭제 중..." : "삭제"}</button>
+                    </td>
                   </tr>;
                 })}
               </tbody>
