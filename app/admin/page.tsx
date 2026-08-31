@@ -219,7 +219,8 @@ export default function AdminPage() {
     return cells;
   }, [cursor]);
 
-  const maxDailyValue = useMemo(() => Math.max(1, ...daily.flatMap((day) => [day.student, day.teacher, day.total])), [daily]);
+  const maxDailyValue = useMemo(() => Math.max(1, ...daily.flatMap((day) => [day.student, day.teacher])), [daily]);
+  const maxTotalValue = useMemo(() => Math.max(1, ...daily.map((day) => day.total)), [daily]);
 
   const LINE_CHART_HEIGHT = 240;
   const LINE_CHART_PAD_TOP = 30;
@@ -231,9 +232,13 @@ export default function AdminPage() {
     const plotHeight = LINE_CHART_HEIGHT - LINE_CHART_PAD_TOP - LINE_CHART_PAD_BOTTOM;
     return LINE_CHART_PAD_TOP + plotHeight - (value / maxDailyValue) * plotHeight;
   };
+  const totalLineY = (value: number) => {
+    const plotHeight = LINE_CHART_HEIGHT - LINE_CHART_PAD_TOP - LINE_CHART_PAD_BOTTOM;
+    return LINE_CHART_PAD_TOP + plotHeight - (value / maxTotalValue) * plotHeight;
+  };
   const studentLinePoints = daily.map((day, index) => `${lineX(index)},${lineY(day.student)}`).join(" ");
   const teacherLinePoints = daily.map((day, index) => `${lineX(index)},${lineY(day.teacher)}`).join(" ");
-  const totalLinePoints = daily.map((day, index) => `${lineX(index)},${lineY(day.total)}`).join(" ");
+  const totalLinePoints = daily.map((day, index) => `${lineX(index)},${totalLineY(day.total)}`).join(" ");
 
   const classStats = useMemo(() => {
     const totals = new Map<string, number>();
@@ -382,7 +387,6 @@ export default function AdminPage() {
             <div className="trendLegend">
               <span className="trendLegendItem"><i className="student" />학생</span>
               <span className="trendLegendItem"><i className="teacher" />교사</span>
-              <span className="trendLegendItem"><i className="total" />총합</span>
             </div>
 
             <div className="trendChartScroll">
@@ -408,13 +412,21 @@ export default function AdminPage() {
                 <line x1="0" y1={LINE_CHART_HEIGHT - LINE_CHART_PAD_BOTTOM} x2={lineChartWidth} y2={LINE_CHART_HEIGHT - LINE_CHART_PAD_BOTTOM} stroke="#d7d2ca" />
                 <polyline points={studentLinePoints} fill="none" stroke="#356b1c" strokeWidth="3" />
                 <polyline points={teacherLinePoints} fill="none" stroke="#701c9f" strokeWidth="3" />
-                <polyline points={totalLinePoints} fill="none" stroke="#efa400" strokeWidth="4" />
                 {daily.map((day, index) => <circle key={`student-${day.date}`} cx={lineX(index)} cy={lineY(day.student)} r="4" fill="#356b1c"><title>{`학생 ${day.student}회`}</title></circle>)}
                 {daily.map((day, index) => <circle key={`teacher-${day.date}`} cx={lineX(index)} cy={lineY(day.teacher)} r="4" fill="#701c9f"><title>{`교사 ${day.teacher}회`}</title></circle>)}
-                {daily.map((day, index) => <circle key={`total-${day.date}`} cx={lineX(index)} cy={lineY(day.total)} r="5" fill="#efa400" stroke="#fff" strokeWidth="1.5"><title>{`총합 ${day.total}회`}</title></circle>)}
-                {daily.map((day, index) => <text key={`total-value-${day.date}`} x={lineX(index)} y={lineY(day.total) - 12} textAnchor="middle" fontSize="16" fontWeight="700" fill="#efa400">{day.total}</text>)}
                 {daily.map((day, index) => <text key={`teacher-value-${day.date}`} x={lineX(index) + 18} y={lineY(day.teacher) + 5} textAnchor="middle" fontSize="14" fontWeight="700" fill="#701c9f">{day.teacher}</text>)}
                 {daily.map((day, index) => <text key={`student-value-${day.date}`} x={lineX(index) - 18} y={lineY(day.student) + 5} textAnchor="middle" fontSize="14" fontWeight="700" fill="#356b1c">{day.student}</text>)}
+                {daily.map((day, index) => <text key={`label-${day.date}`} x={lineX(index)} y={LINE_CHART_HEIGHT - 12} textAnchor="middle" fontSize="14" fill="#2d241f">{shortDate(day.date)}</text>)}
+              </svg>
+            </div>
+
+            <h3 className="trendSubheading"><span className="trendLegendItem"><i className="total" />총합 추이</span></h3>
+            <div className="trendChartScroll">
+              <svg className="lineChart" width={lineChartWidth} height={LINE_CHART_HEIGHT} viewBox={`0 0 ${lineChartWidth} ${LINE_CHART_HEIGHT}`}>
+                <line x1="0" y1={LINE_CHART_HEIGHT - LINE_CHART_PAD_BOTTOM} x2={lineChartWidth} y2={LINE_CHART_HEIGHT - LINE_CHART_PAD_BOTTOM} stroke="#d7d2ca" />
+                <polyline points={totalLinePoints} fill="none" stroke="#efa400" strokeWidth="4" />
+                {daily.map((day, index) => <circle key={`total-${day.date}`} cx={lineX(index)} cy={totalLineY(day.total)} r="5" fill="#efa400" stroke="#fff" strokeWidth="1.5"><title>{`총합 ${day.total}회`}</title></circle>)}
+                {daily.map((day, index) => <text key={`total-value-${day.date}`} x={lineX(index)} y={totalLineY(day.total) - 12} textAnchor="middle" fontSize="16" fontWeight="700" fill="#efa400">{day.total}</text>)}
                 {daily.map((day, index) => <text key={`label-${day.date}`} x={lineX(index)} y={LINE_CHART_HEIGHT - 12} textAnchor="middle" fontSize="14" fill="#2d241f">{shortDate(day.date)}</text>)}
               </svg>
             </div>
