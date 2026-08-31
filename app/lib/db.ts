@@ -16,3 +16,13 @@ export async function ensureTable(sql: NonNullable<ReturnType<typeof database>>)
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`;
 }
+
+export async function ensureAccountsTable(sql: NonNullable<ReturnType<typeof database>>) {
+  await sql`CREATE TABLE IF NOT EXISTS prayer_accounts (
+    school_group TEXT NOT NULL,
+    name TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (school_group, name)
+  )`;
+}

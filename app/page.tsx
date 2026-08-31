@@ -1,9 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import MyStatusModal from "./MyStatusModal";
 
 const GOAL = 5000;
 const LEAF_COUNT = 60;
+const RANKING_PAGE_SIZE = 20;
 
 type RankingEntry = { schoolGroup: string; name: string; total: number };
 
@@ -52,12 +54,17 @@ export default function Home() {
   const [prayerMinutes, setPrayerMinutes] = useState("");
   const [customMinutes, setCustomMinutes] = useState("");
   const [countdown, setCountdown] = useState<Countdown | null>(null);
+  const [rankingPage, setRankingPage] = useState(0);
+  const [showMyStatus, setShowMyStatus] = useState(false);
 
   const isStaff = STAFF_GROUPS.includes(schoolGroup);
 
   const fetchRanking = () => {
     fetch("/api/prayers/ranking").then(async (response) => await response.json() as { configured?: boolean; entries?: RankingEntry[] }).then((data) => {
-      if (data.configured && Array.isArray(data.entries)) setRanking(data.entries);
+      if (data.configured && Array.isArray(data.entries)) {
+        setRanking(data.entries);
+        setRankingPage(0);
+      }
     }).catch(() => undefined);
   };
 
@@ -92,6 +99,12 @@ export default function Home() {
     const timer = setInterval(() => setCountdown(getCountdown()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const rankingPageCount = Math.max(1, Math.ceil(ranking.length / RANKING_PAGE_SIZE));
+  const rankingPageItems = useMemo(
+    () => ranking.slice(rankingPage * RANKING_PAGE_SIZE, rankingPage * RANKING_PAGE_SIZE + RANKING_PAGE_SIZE),
+    [ranking, rankingPage],
+  );
 
   const progress = Math.min((totalCount / GOAL) * 100, 100);
   const filledLeaves = totalCount === 0 ? 0 : Math.max(1, Math.ceil((totalCount / GOAL) * LEAF_COUNT));
@@ -197,6 +210,8 @@ export default function Home() {
       </div>
     </section>
 
+    <button type="button" className="myStatusOpenButton" onClick={() => setShowMyStatus(true)}>내 기도 현황 확인하기</button>
+
     <form className="prayerForm" onSubmit={submitPrayer}>
       <div className="formHeader">
         <h2>나의 기도 기록</h2>
@@ -252,15 +267,24 @@ export default function Home() {
 
     <section className="ranking" aria-labelledby="ranking-title">
       <h2 id="ranking-title">기도나무가 잘 자라도록 만든 사람들</h2>
-      {ranking.length === 0 ? <p className="rankingEmpty">아직 순위에 오른 기도가 없어요.</p> : <ol className="rankingList">
-        {ranking.map((entry, index) => <li key={`${entry.schoolGroup}-${entry.name}-${index}`}>
-          <span className="rankingRank">{index + 1}</span>
-          <span className="rankingName">{entry.name}<small>{entry.schoolGroup}</small></span>
-          <span className="rankingCount">{entry.total.toLocaleString()}회</span>
-        </li>)}
-      </ol>}
+      {ranking.length === 0 ? <p className="rankingEmpty">아직 순위에 오른 기도가 없어요.</p> : <>
+        <ol className={`rankingList${rankingPage === 0 ? " isFirstPage" : ""}`} start={rankingPage * RANKING_PAGE_SIZE + 1}>
+          {rankingPageItems.map((entry, index) => <li key={`${entry.schoolGroup}-${entry.name}-${rankingPage * RANKING_PAGE_SIZE + index}`}>
+            <span className="rankingRank">{rankingPage * RANKING_PAGE_SIZE + index + 1}</span>
+            <span className="rankingName">{entry.name}<small>{entry.schoolGroup}</small></span>
+            <span className="rankingCount">{entry.total.toLocaleString()}회</span>
+          </li>)}
+        </ol>
+        {rankingPageCount > 1 && <div className="rankingPager">
+          <button type="button" onClick={() => setRankingPage((page) => Math.max(0, page - 1))} disabled={rankingPage === 0}>이전</button>
+          <span>{rankingPage + 1} / {rankingPageCount}</span>
+          <button type="button" onClick={() => setRankingPage((page) => Math.min(rankingPageCount - 1, page + 1))} disabled={rankingPage >= rankingPageCount - 1}>다음</button>
+        </div>}
+      </>}
     </section>
 
     <p className="closing">기도가 쌓일수록 우리의 나무가 자라납니다.</p>
+
+    {showMyStatus && <MyStatusModal onClose={() => setShowMyStatus(false)} />}
   </main>;
 }
