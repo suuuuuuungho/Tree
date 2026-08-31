@@ -7,7 +7,7 @@ const LEAF_COUNT = 60;
 
 type RankingEntry = { schoolGroup: string; name: string; total: number };
 
-const STAFF_GROUPS = ["교사"];
+const STAFF_GROUPS = ["교사", "교역자"];
 const DURATION_OPTIONS = Array.from({ length: 10 }, (_, index) => (index + 1) * 30);
 
 function formatDuration(minutes: number) {
@@ -19,7 +19,8 @@ function formatDuration(minutes: number) {
 
 function minutesToPrayerCount(minutes: number) {
   if (!Number.isFinite(minutes) || minutes <= 0) return null;
-  return Math.min(10, Math.max(1, Math.round(minutes / 30)));
+  const count = Math.min(10, Math.floor(minutes / 30));
+  return count > 0 ? count : null;
 }
 
 export default function Home() {
