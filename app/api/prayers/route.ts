@@ -1,24 +1,7 @@
-import { neon } from "@neondatabase/serverless";
 import { NextResponse } from "next/server";
+import { database, ensureTable } from "../../lib/db";
 
 const GOAL = 5000;
-
-function database() {
-  const url = process.env.DATABASE_URL;
-  if (!url) return null;
-  return neon(url);
-}
-
-async function ensureTable(sql: NonNullable<ReturnType<typeof database>>) {
-  await sql`CREATE TABLE IF NOT EXISTS prayers (
-    id BIGSERIAL PRIMARY KEY,
-    school_group TEXT NOT NULL,
-    name TEXT NOT NULL,
-    prayer_date DATE NOT NULL,
-    prayer_count INTEGER NOT NULL CHECK (prayer_count BETWEEN 1 AND 10),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`;
-}
 
 export async function GET() {
   const sql = database();

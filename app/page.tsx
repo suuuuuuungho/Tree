@@ -5,6 +5,8 @@ import { FormEvent, useEffect, useState } from "react";
 const GOAL = 5000;
 const LEAF_COUNT = 60;
 
+type RankingEntry = { schoolGroup: string; name: string; total: number };
+
 export default function Home() {
   const [prayerCount, setPrayerCount] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -13,6 +15,13 @@ export default function Home() {
   const [schoolGroup, setSchoolGroup] = useState("");
   const [studentName, setStudentName] = useState("");
   const [prayerDate, setPrayerDate] = useState("");
+  const [ranking, setRanking] = useState<RankingEntry[]>([]);
+
+  const fetchRanking = () => {
+    fetch("/api/prayers/ranking").then(async (response) => await response.json() as { configured?: boolean; entries?: RankingEntry[] }).then((data) => {
+      if (data.configured && Array.isArray(data.entries)) setRanking(data.entries);
+    }).catch(() => undefined);
+  };
 
   useEffect(() => {
     try {
@@ -36,6 +45,8 @@ export default function Home() {
         if (Number.isFinite(storedCount)) setTotalCount(Math.min(Math.max(storedCount, 0), GOAL));
       }
     }).catch(() => undefined);
+
+    fetchRanking();
   }, []);
 
   const progress = Math.min((totalCount / GOAL) * 100, 100);
@@ -56,6 +67,7 @@ export default function Home() {
       if (!response.ok) throw new Error("database unavailable");
       const data = await response.json() as { total: number };
       setTotalCount(data.total);
+      fetchRanking();
     } catch {
       const nextTotal = Math.min(totalCount + prayerCount, GOAL);
       setTotalCount(nextTotal);
@@ -133,6 +145,17 @@ export default function Home() {
       <button className="submitButton" type="submit" disabled={submitting}>{submitting ? "기록 중..." : saved ? `${prayerCount}회 기도 기록 완료` : "기도 기록하기"}</button>
       {saved && <p className="successMessage" role="status" aria-live="polite">기도 {prayerCount}회가 잘 기록되었어요!</p>}
     </form>
+
+    <section className="ranking" aria-labelledby="ranking-title">
+      <h2 id="ranking-title">누가 기도나무가 잘 자라도록 만들었을까요?</h2>
+      {ranking.length === 0 ? <p className="rankingEmpty">아직 순위에 오른 기도가 없어요.</p> : <ol className="rankingList">
+        {ranking.map((entry, index) => <li key={`${entry.schoolGroup}-${entry.name}-${index}`}>
+          <span className="rankingRank">{index + 1}</span>
+          <span className="rankingName">{entry.name}<small>{entry.schoolGroup}</small></span>
+          <span className="rankingCount">{entry.total.toLocaleString()}회</span>
+        </li>)}
+      </ol>}
+    </section>
 
     <p className="closing">기도가 쌓일수록 우리의 나무가 자라납니다.</p>
   </main>;
