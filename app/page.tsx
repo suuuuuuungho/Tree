@@ -226,8 +226,8 @@ export default function Home() {
       </label>
 
       {isStaff && <label className="field">
-        <span>기도시간(분)</span>
-        <select value={prayerMinutes} onChange={(event) => handleDurationChange(event.target.value)} required>
+        <span>기도시간(분){isStaff && <em className="linkedNote">기도 횟수와 연동돼요</em>}</span>
+        <select className={isStaff ? "linked" : ""} value={prayerMinutes} onChange={(event) => handleDurationChange(event.target.value)} required>
           <option value="" disabled>기도시간 선택</option>
           {DURATION_OPTIONS.map((minutes) => <option key={minutes} value={minutes}>{formatDuration(minutes)}</option>)}
           <option value="custom">기타 (직접 입력)</option>
@@ -239,15 +239,12 @@ export default function Home() {
         <input type="text" inputMode="numeric" pattern="[0-9]*" value={customMinutes} onChange={(event) => handleCustomMinutesChange(event.target.value)} placeholder="숫자만 입력해 주세요" required />
       </label>}
 
-      <fieldset className="countField">
-        <legend>기도 횟수</legend>
-        <div className="countGrid">
-          {Array.from({ length: 10 }, (_, index) => index + 1).map((count) => <button
-            type="button" key={count} className={prayerCount === count ? "selected" : ""}
-            onClick={() => handlePrayerCountChange(count)} aria-pressed={prayerCount === count}
-          ><strong>{count}</strong><small>회</small></button>)}
-        </div>
-      </fieldset>
+      <label className="field">
+        <span>기도 횟수{isStaff && <em className="linkedNote">기도 시간과 연동돼요</em>}</span>
+        <select className={isStaff ? "linked" : ""} value={prayerCount} onChange={(event) => handlePrayerCountChange(Number(event.target.value))} required>
+          {Array.from({ length: 10 }, (_, index) => index + 1).map((count) => <option key={count} value={count}>{count}회</option>)}
+        </select>
+      </label>
 
       <button className="submitButton" type="submit" disabled={submitting}>{submitting ? "기록 중..." : saved ? `${prayerCount}회 기도 기록 완료` : "기도 기록하기"}</button>
       {saved && <p className="successMessage" role="status" aria-live="polite">기도 {prayerCount}회가 잘 기록되었어요!</p>}
