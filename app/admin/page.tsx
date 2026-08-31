@@ -314,26 +314,28 @@ export default function AdminPage() {
               <h2>{cursor.year}년 {cursor.month + 1}월</h2>
               <button type="button" onClick={() => setCursor((current) => current.month === 11 ? { year: current.year + 1, month: 0 } : { year: current.year, month: current.month + 1 })}>다음</button>
             </div>
-            <div className="adminCalendarGrid">
-              {WEEKDAYS.map((weekday) => <div key={weekday} className="adminCalendarWeekday">{weekday}</div>)}
-              {calendarCells.map((cell, index) => {
-                if (!cell) return <div key={`empty-${index}`} className="adminCalendarCell empty" />;
-                const stat = dailyMap.get(cell.date);
-                const isSelected = selectedDate === cell.date;
-                return <button
-                  type="button" key={cell.date}
-                  className={`adminCalendarCell${stat ? " hasData" : ""}${isSelected ? " selected" : ""}`}
-                  onClick={() => stat && handleDayClick(cell.date)}
-                  disabled={!stat}
-                >
-                  <span className="adminCalendarDay">{cell.day}</span>
-                  {stat ? <div className="adminCalendarStats">
-                    <span className="adminCalendarTotal">총 {stat.total}회</span>
-                    <span>학생 {stat.student}회</span>
-                    <span>교사 {stat.teacher}회</span>
-                  </div> : <span className="adminCalendarEmpty">-</span>}
-                </button>;
-              })}
+            <div className="adminCalendarScroll">
+              <div className="adminCalendarGrid">
+                {WEEKDAYS.map((weekday) => <div key={weekday} className="adminCalendarWeekday">{weekday}</div>)}
+                {calendarCells.map((cell, index) => {
+                  if (!cell) return <div key={`empty-${index}`} className="adminCalendarCell empty" />;
+                  const stat = dailyMap.get(cell.date);
+                  const isSelected = selectedDate === cell.date;
+                  return <button
+                    type="button" key={cell.date}
+                    className={`adminCalendarCell${stat ? " hasData" : ""}${isSelected ? " selected" : ""}`}
+                    onClick={() => stat && handleDayClick(cell.date)}
+                    disabled={!stat}
+                  >
+                    <span className="adminCalendarDay">{cell.day}</span>
+                    {stat ? <div className="adminCalendarStats">
+                      <span className="adminCalendarTotal">총 {stat.total}회</span>
+                      <span>학생 {stat.student}회</span>
+                      <span>교사 {stat.teacher}회</span>
+                    </div> : <span className="adminCalendarEmpty">-</span>}
+                  </button>;
+                })}
+              </div>
             </div>
 
             {selectedDate && <div className="adminDetail">
