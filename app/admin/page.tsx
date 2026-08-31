@@ -154,6 +154,19 @@ export default function AdminPage() {
 
   const maxDailyValue = useMemo(() => Math.max(1, ...daily.flatMap((day) => [day.student, day.teacher])), [daily]);
 
+  const LINE_CHART_HEIGHT = 240;
+  const LINE_CHART_PAD_TOP = 24;
+  const LINE_CHART_PAD_BOTTOM = 36;
+  const LINE_CHART_COL_WIDTH = 56;
+  const lineChartWidth = Math.max(360, daily.length * LINE_CHART_COL_WIDTH);
+  const lineX = (index: number) => daily.length > 1 ? (index / (daily.length - 1)) * (lineChartWidth - 40) + 20 : lineChartWidth / 2;
+  const lineY = (value: number) => {
+    const plotHeight = LINE_CHART_HEIGHT - LINE_CHART_PAD_TOP - LINE_CHART_PAD_BOTTOM;
+    return LINE_CHART_PAD_TOP + plotHeight - (value / maxDailyValue) * plotHeight;
+  };
+  const studentLinePoints = daily.map((day, index) => `${lineX(index)},${lineY(day.student)}`).join(" ");
+  const teacherLinePoints = daily.map((day, index) => `${lineX(index)},${lineY(day.teacher)}`).join(" ");
+
   const classTotals = useMemo(() => {
     const map = new Map<string, number>();
     for (const entry of entries) {
@@ -189,7 +202,7 @@ export default function AdminPage() {
   if (!authed) {
     return <main className="adminMain">
       <form className="adminLogin" onSubmit={handleLogin}>
-        <h1>관리자 페이지</h1>
+        <h1>10.11.(주일) 올인 500명의 예배자_영혼의 때를 위하여</h1>
         <label className="field">
           <span>비밀번호</span>
           <input type="password" inputMode="numeric" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="비밀번호를 입력해 주세요" required autoFocus />
@@ -201,7 +214,7 @@ export default function AdminPage() {
   }
 
   return <main className="adminMain">
-    <h1>관리자 페이지</h1>
+    <h1>10.11.(주일) 올인 500명의 예배자_영혼의 때를 위하여</h1>
 
     <div className="adminLayout">
       <nav className="adminSidebar">
@@ -240,7 +253,7 @@ export default function AdminPage() {
                 >
                   <span className="adminCalendarDay">{cell.day}</span>
                   {stat ? <div className="adminCalendarStats">
-                    <span>총 {stat.total}회</span>
+                    <span className="adminCalendarTotal">총 {stat.total}회</span>
                     <span>학생 {stat.student}회</span>
                     <span>교사 {stat.teacher}회</span>
                   </div> : <span className="adminCalendarEmpty">-</span>}
@@ -281,16 +294,36 @@ export default function AdminPage() {
               <span className="trendLegendItem"><i className="student" />학생</span>
               <span className="trendLegendItem"><i className="teacher" />교사</span>
             </div>
+
+            <h3 className="trendSubtitle">막대그래프</h3>
             <div className="trendChartScroll">
               <div className="trendChart">
                 {daily.map((day) => <div className="trendCol" key={day.date}>
                   <div className="trendBars">
-                    <div className="trendBar student" style={{ height: `${(day.student / maxDailyValue) * 100}%` }} title={`학생 ${day.student}회`} />
-                    <div className="trendBar teacher" style={{ height: `${(day.teacher / maxDailyValue) * 100}%` }} title={`교사 ${day.teacher}회`} />
+                    <div className="trendBarWrap">
+                      <span className="trendValue">{day.student}</span>
+                      <div className="trendBar student" style={{ height: `${(day.student / maxDailyValue) * 100}%` }} title={`학생 ${day.student}회`} />
+                    </div>
+                    <div className="trendBarWrap">
+                      <span className="trendValue">{day.teacher}</span>
+                      <div className="trendBar teacher" style={{ height: `${(day.teacher / maxDailyValue) * 100}%` }} title={`교사 ${day.teacher}회`} />
+                    </div>
                   </div>
                   <span className="trendLabel">{shortDate(day.date)}</span>
                 </div>)}
               </div>
+            </div>
+
+            <h3 className="trendSubtitle">꺾은선그래프</h3>
+            <div className="trendChartScroll">
+              <svg className="lineChart" width={lineChartWidth} height={LINE_CHART_HEIGHT} viewBox={`0 0 ${lineChartWidth} ${LINE_CHART_HEIGHT}`}>
+                <line x1="0" y1={LINE_CHART_HEIGHT - LINE_CHART_PAD_BOTTOM} x2={lineChartWidth} y2={LINE_CHART_HEIGHT - LINE_CHART_PAD_BOTTOM} stroke="#d7d2ca" />
+                <polyline points={studentLinePoints} fill="none" stroke="#356b1c" strokeWidth="3" />
+                <polyline points={teacherLinePoints} fill="none" stroke="#701c9f" strokeWidth="3" />
+                {daily.map((day, index) => <circle key={`student-${day.date}`} cx={lineX(index)} cy={lineY(day.student)} r="4" fill="#356b1c" />)}
+                {daily.map((day, index) => <circle key={`teacher-${day.date}`} cx={lineX(index)} cy={lineY(day.teacher)} r="4" fill="#701c9f" />)}
+                {daily.map((day, index) => <text key={`label-${day.date}`} x={lineX(index)} y={LINE_CHART_HEIGHT - 12} textAnchor="middle" fontSize="13" fill="#2d241f">{shortDate(day.date)}</text>)}
+              </svg>
             </div>
           </>}
         </section>}
