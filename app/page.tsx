@@ -8,6 +8,7 @@ const LEAF_COUNT = 60;
 const RANKING_PAGE_SIZE = 20;
 
 type RankingEntry = { schoolGroup: string; name: string; total: number };
+type RankedEntry = RankingEntry & { rank: number };
 
 const STAFF_GROUPS = ["교사", "교역자"];
 const DURATION_OPTIONS = Array.from({ length: 10 }, (_, index) => (index + 1) * 30);
@@ -100,10 +101,22 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  const rankingPageCount = Math.max(1, Math.ceil(ranking.length / RANKING_PAGE_SIZE));
+  const rankedEntries = useMemo<RankedEntry[]>(() => {
+    let rank = 0;
+    let previousTotal: number | null = null;
+    return ranking.map((entry, index) => {
+      if (entry.total !== previousTotal) {
+        rank = index + 1;
+        previousTotal = entry.total;
+      }
+      return { ...entry, rank };
+    });
+  }, [ranking]);
+
+  const rankingPageCount = Math.max(1, Math.ceil(rankedEntries.length / RANKING_PAGE_SIZE));
   const rankingPageItems = useMemo(
-    () => ranking.slice(rankingPage * RANKING_PAGE_SIZE, rankingPage * RANKING_PAGE_SIZE + RANKING_PAGE_SIZE),
-    [ranking, rankingPage],
+    () => rankedEntries.slice(rankingPage * RANKING_PAGE_SIZE, rankingPage * RANKING_PAGE_SIZE + RANKING_PAGE_SIZE),
+    [rankedEntries, rankingPage],
   );
 
   const progress = Math.min((totalCount / GOAL) * 100, 100);
@@ -268,9 +281,9 @@ export default function Home() {
     <section className="ranking" aria-labelledby="ranking-title">
       <h2 id="ranking-title">기도 나무를 만들어가는 사람들</h2>
       {ranking.length === 0 ? <p className="rankingEmpty">아직 순위에 오른 기도가 없어요.</p> : <>
-        <ol className={`rankingList${rankingPage === 0 ? " isFirstPage" : ""}`} start={rankingPage * RANKING_PAGE_SIZE + 1}>
-          {rankingPageItems.map((entry, index) => <li key={`${entry.schoolGroup}-${entry.name}-${rankingPage * RANKING_PAGE_SIZE + index}`}>
-            <span className="rankingRank">{rankingPage * RANKING_PAGE_SIZE + index + 1}</span>
+        <ol className="rankingList">
+          {rankingPageItems.map((entry, index) => <li key={`${entry.schoolGroup}-${entry.name}-${index}`} className={entry.rank <= 3 ? `rank-${entry.rank}` : undefined}>
+            <span className="rankingRank">{entry.rank}</span>
             <span className="rankingName">{entry.name}<small>{entry.schoolGroup}</small></span>
             <span className="rankingCount">{entry.total.toLocaleString()}회</span>
           </li>)}
