@@ -3,8 +3,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type DailyStat = { date: string; total: number; student: number; teacher: number };
+type DayEntry = { schoolGroup: string; name: string; prayerCount: number };
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+const STAFF_GROUPS = ["교사", "교역자"];
 
 export default function AdminPage() {
   const [checking, setChecking] = useState(true);
@@ -17,6 +19,9 @@ export default function AdminPage() {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [dayEntries, setDayEntries] = useState<DayEntry[]>([]);
+  const [dayLoading, setDayLoading] = useState(false);
 
   const loadStats = async () => {
     try {
@@ -58,6 +63,27 @@ export default function AdminPage() {
       setSubmitting(false);
     }
   };
+
+  const handleDayClick = async (date: string) => {
+    if (selectedDate === date) {
+      setSelectedDate(null);
+      return;
+    }
+    setSelectedDate(date);
+    setDayLoading(true);
+    try {
+      const response = await fetch(`/api/admin/day?date=${date}`);
+      const data = await response.json() as { configured?: boolean; entries?: DayEntry[] };
+      setDayEntries(data.entries ?? []);
+    } catch {
+      setDayEntries([]);
+    } finally {
+      setDayLoading(false);
+    }
+  };
+
+  const studentEntries = useMemo(() => dayEntries.filter((entry) => !STAFF_GROUPS.includes(entry.schoolGroup)), [dayEntries]);
+  const teacherEntries = useMemo(() => dayEntries.filter((entry) => STAFF_GROUPS.includes(entry.schoolGroup)), [dayEntries]);
 
   const totals = useMemo(() => daily.reduce((acc, day) => ({
     total: acc.total + day.total,
@@ -115,16 +141,46 @@ export default function AdminPage() {
         {calendarCells.map((cell, index) => {
           if (!cell) return <div key={`empty-${index}`} className="adminCalendarCell empty" />;
           const stat = dailyMap.get(cell.date);
-          return <div key={cell.date} className="adminCalendarCell">
+          const isSelected = selectedDate === cell.date;
+          return <button
+            type="button" key={cell.date}
+            className={`adminCalendarCell${stat ? " hasData" : ""}${isSelected ? " selected" : ""}`}
+            onClick={() => stat && handleDayClick(cell.date)}
+            disabled={!stat}
+          >
             <span className="adminCalendarDay">{cell.day}</span>
             {stat ? <div className="adminCalendarStats">
               <span>총 {stat.total}회</span>
               <span>학생 {stat.student}회</span>
               <span>교사 {stat.teacher}회</span>
             </div> : <span className="adminCalendarEmpty">-</span>}
-          </div>;
+          </button>;
         })}
       </div>
+
+      {selectedDate && <div className="adminDetail">
+        <h3>{selectedDate} 상세 내역</h3>
+        {dayLoading ? <p className="adminDetailLoading">불러오는 중...</p> : <div className="adminDetailGroups">
+          <div className="adminDetailGroup">
+            <h4>학생 ({studentEntries.length}명)</h4>
+            {studentEntries.length === 0 ? <p className="adminDetailEmpty">기록 없음</p> : <ul>
+              {studentEntries.map((entry, index) => <li key={`${entry.name}-${index}`}>
+                <span className="adminDetailName">{entry.name}<small>{entry.schoolGroup}</small></span>
+                <span className="adminDetailCount">{entry.prayerCount}회</span>
+              </li>)}
+            </ul>}
+          </div>
+          <div className="adminDetailGroup">
+            <h4>교사 ({teacherEntries.length}명)</h4>
+            {teacherEntries.length === 0 ? <p className="adminDetailEmpty">기록 없음</p> : <ul>
+              {teacherEntries.map((entry, index) => <li key={`${entry.name}-${index}`}>
+                <span className="adminDetailName">{entry.name}<small>{entry.schoolGroup}</small></span>
+                <span className="adminDetailCount">{entry.prayerCount}회</span>
+              </li>)}
+            </ul>}
+          </div>
+        </div>}
+      </div>}
     </section>
   </main>;
 }
