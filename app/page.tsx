@@ -180,7 +180,7 @@ export default function Home() {
 
     <section className="goalCard" aria-labelledby="goal-title">
       <div className="goalCopy">
-        <p className="goalEyebrow">우리의 공동 목표: 10.11.(주일) 올인 500명의 예배자_영혼의 때를 위하여</p>
+        <p className="goalEyebrow">10.11.(주일) 올인 500명의 예배자_영혼의 때를 위하여</p>
         <h2 id="goal-title"><strong>{totalCount.toLocaleString()}회</strong><span>의 기도가 모였어요</span></h2>
         <p>{stage}</p>
         <div className="goalTrack" role="progressbar" aria-label="전체 기도 진행률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}>
