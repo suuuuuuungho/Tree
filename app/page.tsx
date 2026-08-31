@@ -7,6 +7,21 @@ const LEAF_COUNT = 60;
 
 type RankingEntry = { schoolGroup: string; name: string; total: number };
 
+const STAFF_GROUPS = ["교사", "교역자"];
+const DURATION_OPTIONS = Array.from({ length: 10 }, (_, index) => (index + 1) * 30);
+
+function formatDuration(minutes: number) {
+  if (minutes < 60) return `${minutes}분`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return `${minutes}분(${hours}시간${rest === 0 ? "" : ` ${rest}분`})`;
+}
+
+function minutesToPrayerCount(minutes: number) {
+  if (!Number.isFinite(minutes) || minutes <= 0) return null;
+  return Math.min(10, Math.max(1, Math.round(minutes / 30)));
+}
+
 export default function Home() {
   const [prayerCount, setPrayerCount] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -16,6 +31,10 @@ export default function Home() {
   const [studentName, setStudentName] = useState("");
   const [prayerDate, setPrayerDate] = useState("");
   const [ranking, setRanking] = useState<RankingEntry[]>([]);
+  const [prayerMinutes, setPrayerMinutes] = useState("");
+  const [customMinutes, setCustomMinutes] = useState("");
+
+  const isStaff = STAFF_GROUPS.includes(schoolGroup);
 
   const fetchRanking = () => {
     fetch("/api/prayers/ranking").then(async (response) => await response.json() as { configured?: boolean; entries?: RankingEntry[] }).then((data) => {
@@ -52,6 +71,31 @@ export default function Home() {
   const progress = Math.min((totalCount / GOAL) * 100, 100);
   const filledLeaves = totalCount === 0 ? 0 : Math.max(1, Math.ceil((totalCount / GOAL) * LEAF_COUNT));
   const stage = progress >= 100 ? "기도나무 완성" : progress >= 70 ? "열매 맺는 중" : progress >= 35 ? "잎이 자라는 중" : progress > 0 ? "새싹이 자라는 중" : "첫 기도를 기다려요";
+
+  const handleSchoolGroupChange = (value: string) => {
+    setSchoolGroup(value);
+    setSaved(false);
+    if (!STAFF_GROUPS.includes(value)) {
+      setPrayerMinutes("");
+      setCustomMinutes("");
+    }
+  };
+
+  const handleDurationChange = (value: string) => {
+    setPrayerMinutes(value);
+    setSaved(false);
+    const minutes = value === "custom" ? Number(customMinutes) : Number(value);
+    const count = minutesToPrayerCount(minutes);
+    if (count) setPrayerCount(count);
+  };
+
+  const handleCustomMinutesChange = (raw: string) => {
+    const digitsOnly = raw.replace(/[^0-9]/g, "");
+    setCustomMinutes(digitsOnly);
+    setSaved(false);
+    const count = minutesToPrayerCount(Number(digitsOnly));
+    if (count) setPrayerCount(count);
+  };
 
   const submitPrayer = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -112,7 +156,7 @@ export default function Home() {
 
       <label className="field">
         <span>학년 · 반</span>
-        <select name="schoolGroup" value={schoolGroup} onChange={(event) => { setSchoolGroup(event.target.value); setSaved(false); }} required>
+        <select name="schoolGroup" value={schoolGroup} onChange={(event) => handleSchoolGroupChange(event.target.value)} required>
           <option value="" disabled>학년 · 반 선택</option>
           <option>1-1반</option><option>1-2반</option><option>1-3반</option><option>1-4반</option><option>1-5반</option><option>1-6반</option>
           <option>2-1반</option><option>2-2반</option><option>2-3반</option><option>2-4반</option><option>2-5반</option><option>2-6반</option><option>2-7반</option>
@@ -131,6 +175,20 @@ export default function Home() {
         <span>날짜</span>
         <input name="prayerDate" type="date" value={prayerDate} onChange={(event) => { setPrayerDate(event.target.value); setSaved(false); }} required />
       </label>
+
+      {isStaff && <label className="field">
+        <span>기도시간(분)</span>
+        <select value={prayerMinutes} onChange={(event) => handleDurationChange(event.target.value)} required>
+          <option value="" disabled>기도시간 선택</option>
+          {DURATION_OPTIONS.map((minutes) => <option key={minutes} value={minutes}>{formatDuration(minutes)}</option>)}
+          <option value="custom">기타 (직접 입력)</option>
+        </select>
+      </label>}
+
+      {isStaff && prayerMinutes === "custom" && <label className="field">
+        <span>기도시간 직접 입력 (분)</span>
+        <input type="text" inputMode="numeric" pattern="[0-9]*" value={customMinutes} onChange={(event) => handleCustomMinutesChange(event.target.value)} placeholder="숫자만 입력해 주세요" required />
+      </label>}
 
       <fieldset className="countField">
         <legend>기도 횟수</legend>
