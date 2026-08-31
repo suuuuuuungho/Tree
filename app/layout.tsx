@@ -3,7 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 
 const uiyeun = localFont({
-  src: "../public/fonts/Uiyeun-Regular.woff",
+  src: "../public/fonts/Uiyeun-Regular.woff2",
   weight: "400",
   style: "normal",
   display: "swap",
