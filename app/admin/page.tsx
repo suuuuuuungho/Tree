@@ -491,13 +491,13 @@ export default function AdminPage() {
                     {classTable.names.length === 0 ? <p className="adminDetailEmpty">기록 없음</p> : <div className="classTableScroll">
                       <table className="classTable">
                         <thead>
-                          <tr><th>이름</th><th className="classTableTotal">총합</th>{classTable.dates.map((date) => <th key={date}>{shortDate(date)}</th>)}</tr>
+                          <tr><th>이름</th><th className="classTableTotal">총합</th>{classTable.dates.map((date) => <th key={date} className="classTableDate">{shortDate(date)}</th>)}</tr>
                         </thead>
                         <tbody>
                           {classTable.names.map((name) => <tr key={name}>
                             <td>{name}</td>
                             <td className="classTableTotal">{classTable.totals.get(name) ?? 0}</td>
-                            {classTable.dates.map((date) => <td key={date}>{classTable.matrix.get(name)?.get(date) ?? "-"}</td>)}
+                            {classTable.dates.map((date) => <td key={date} className="classTableDate">{classTable.matrix.get(name)?.get(date) ?? "-"}</td>)}
                           </tr>)}
                         </tbody>
                       </table>
@@ -519,13 +519,13 @@ export default function AdminPage() {
                 {classTable.names.length === 0 ? <p className="adminDetailEmpty">기록 없음</p> : <div className="classTableScroll">
                   <table className="classTable">
                     <thead>
-                      <tr><th>이름</th><th className="classTableTotal">총합</th>{classTable.dates.map((date) => <th key={date}>{shortDate(date)}</th>)}</tr>
+                      <tr><th>이름</th><th className="classTableTotal">총합</th>{classTable.dates.map((date) => <th key={date} className="classTableDate">{shortDate(date)}</th>)}</tr>
                     </thead>
                     <tbody>
                       {classTable.names.map((name) => <tr key={name}>
                         <td>{name}</td>
                         <td className="classTableTotal">{classTable.totals.get(name) ?? 0}</td>
-                        {classTable.dates.map((date) => <td key={date}>{classTable.matrix.get(name)?.get(date) ?? "-"}</td>)}
+                        {classTable.dates.map((date) => <td key={date} className="classTableDate">{classTable.matrix.get(name)?.get(date) ?? "-"}</td>)}
                       </tr>)}
                     </tbody>
                   </table>
