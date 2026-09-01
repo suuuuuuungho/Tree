@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import MyStatusModal from "./MyStatusModal";
 import DailyLimitModal from "./DailyLimitModal";
 import AnnouncementModal, { shouldShowAnnouncement } from "./AnnouncementModal";
+import RecordCalendarModal from "./RecordCalendarModal";
 
 const GOAL = 5000;
 const LEAF_COUNT = 60;
@@ -64,6 +65,7 @@ export default function Home() {
   const [showMyStatus, setShowMyStatus] = useState(false);
   const [dailyWarning, setDailyWarning] = useState<{ date: string } | null>(null);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
+  const [showDateCalendar, setShowDateCalendar] = useState(false);
   const [todayRecords, setTodayRecords] = useState<TodayRecord[]>([]);
   const [editTodayCounts, setEditTodayCounts] = useState<Record<string, number>>({});
   const [savingTodayId, setSavingTodayId] = useState<string | null>(null);
@@ -309,7 +311,7 @@ export default function Home() {
 
     <button type="button" className="myStatusOpenButton" onClick={() => setShowMyStatus(true)}>내 기도 현황 확인하기</button>
 
-    {todayRecords.length > 0 ? <div className="prayerForm">
+    {todayRecords.length > 0 && prayerDate === maxPrayerDate ? <div className="prayerForm">
       <div className="formHeader">
         <h2>오늘 제출 현황</h2>
         <span className="todayBadge">오늘의 한 걸음</span>
@@ -319,6 +321,8 @@ export default function Home() {
 
       {todayActionError && <p className="adminError">{todayActionError}</p>}
       {todaySavedMessage && <p className="successMessage" role="status" aria-live="polite">{todaySavedMessage}</p>}
+
+      <p className="todayCountHint">아래 횟수는 하루 기도 횟수 총합이에요.</p>
 
       {todayRecords.map((record) => <div className="myStatusRecordRow" key={record.id}>
         <select
@@ -332,6 +336,8 @@ export default function Home() {
           <button type="button" className="danger" onClick={() => handleDeleteToday(record)} disabled={deletingTodayId === record.id}>{deletingTodayId === record.id ? "삭제 중..." : "삭제"}</button>
         </div>
       </div>)}
+
+      <button type="button" className="myStatusBack" onClick={() => setShowDateCalendar(true)}>다른 날짜 기록하기</button>
     </div> : <form className="prayerForm" onSubmit={submitPrayer}>
       <div className="formHeader">
         <h2>나의 기도 기록</h2>
@@ -410,6 +416,11 @@ export default function Home() {
     {dailyWarning && <DailyLimitModal
       schoolGroup={schoolGroup} name={studentName} date={dailyWarning.date}
       onClose={() => setDailyWarning(null)}
+    />}
+    {showDateCalendar && <RecordCalendarModal
+      schoolGroup={schoolGroup} name={studentName} minDate={minPrayerDate}
+      onClose={() => setShowDateCalendar(false)}
+      onSelectDate={(date) => { setPrayerDate(date); setSaved(false); setShowDateCalendar(false); }}
     />}
   </main>;
 }
