@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import MyStatusModal from "./MyStatusModal";
 import DailyLimitModal from "./DailyLimitModal";
+import AnnouncementModal, { shouldShowAnnouncement } from "./AnnouncementModal";
 
 const GOAL = 5000;
 const LEAF_COUNT = 60;
@@ -61,6 +62,7 @@ export default function Home() {
   const [rankingPage, setRankingPage] = useState(0);
   const [showMyStatus, setShowMyStatus] = useState(false);
   const [dailyWarning, setDailyWarning] = useState<{ date: string } | null>(null);
+  const [showAnnouncement, setShowAnnouncement] = useState(false);
 
   const isStaff = STAFF_GROUPS.includes(schoolGroup);
 
@@ -102,6 +104,8 @@ export default function Home() {
     }).catch(() => undefined);
 
     fetchRanking();
+
+    if (shouldShowAnnouncement()) setShowAnnouncement(true);
   }, []);
 
   useEffect(() => {
@@ -314,6 +318,7 @@ export default function Home() {
 
     <p className="closing">기도가 쌓일수록 우리의 나무가 자라납니다.</p>
 
+    {showAnnouncement && <AnnouncementModal onClose={() => setShowAnnouncement(false)} />}
     {showMyStatus && <MyStatusModal onClose={() => setShowMyStatus(false)} />}
     {dailyWarning && <DailyLimitModal
       schoolGroup={schoolGroup} name={studentName} date={dailyWarning.date}
