@@ -245,6 +245,20 @@ export default function AdminPage() {
   };
   const studentLinePoints = daily.map((day, index) => `${lineX(index)},${lineY(day.student)}`).join(" ");
   const teacherLinePoints = daily.map((day, index) => `${lineX(index)},${lineY(day.teacher)}`).join(" ");
+
+  const cumulativeDaily = useMemo(
+    () => daily.map((day, index) => ({
+      date: day.date,
+      cumulative: daily.slice(0, index + 1).reduce((sum, entry) => sum + entry.total, 0),
+    })),
+    [daily],
+  );
+  const maxCumulativeValue = useMemo(() => Math.max(1, ...cumulativeDaily.map((day) => day.cumulative)), [cumulativeDaily]);
+  const cumulativeLineY = (value: number) => {
+    const plotHeight = LINE_CHART_HEIGHT - LINE_CHART_PAD_TOP - LINE_CHART_PAD_BOTTOM;
+    return LINE_CHART_PAD_TOP + plotHeight - (value / maxCumulativeValue) * plotHeight;
+  };
+  const cumulativeLinePoints = cumulativeDaily.map((day, index) => `${lineX(index)},${cumulativeLineY(day.cumulative)}`).join(" ");
   const totalLinePoints = daily.map((day, index) => `${lineX(index)},${totalLineY(day.total)}`).join(" ");
 
   const classStats = useMemo(() => {
@@ -435,6 +449,17 @@ export default function AdminPage() {
                 {daily.map((day, index) => <circle key={`total-${day.date}`} cx={lineX(index)} cy={totalLineY(day.total)} r="5" fill="#efa400" stroke="#fff" strokeWidth="1.5"><title>{`총합 ${day.total}회`}</title></circle>)}
                 {daily.map((day, index) => <text key={`total-value-${day.date}`} x={lineX(index)} y={totalLineY(day.total) - 14} textAnchor="middle" fontSize="20" fill="#efa400">{day.total}</text>)}
                 {daily.map((day, index) => <text key={`label-${day.date}`} x={lineX(index)} y={LINE_CHART_HEIGHT - 12} textAnchor="middle" fontSize="14" fill="#2d241f">{shortDate(day.date)}</text>)}
+              </svg>
+            </div>
+
+            <h3 className="trendSubheading"><span className="trendLegendItem"><i className="cumulative" />누적 추이</span></h3>
+            <div className="trendChartScroll">
+              <svg className="lineChart" width={lineChartWidth} height={LINE_CHART_HEIGHT} viewBox={`0 0 ${lineChartWidth} ${LINE_CHART_HEIGHT}`}>
+                <line x1="0" y1={LINE_CHART_HEIGHT - LINE_CHART_PAD_BOTTOM} x2={lineChartWidth} y2={LINE_CHART_HEIGHT - LINE_CHART_PAD_BOTTOM} stroke="#d7d2ca" />
+                <polyline points={cumulativeLinePoints} fill="none" stroke="#c0392b" strokeWidth="4" />
+                {cumulativeDaily.map((day, index) => <circle key={`cumulative-${day.date}`} cx={lineX(index)} cy={cumulativeLineY(day.cumulative)} r="5" fill="#c0392b" stroke="#fff" strokeWidth="1.5"><title>{`누적 ${day.cumulative}회`}</title></circle>)}
+                {cumulativeDaily.map((day, index) => <text key={`cumulative-value-${day.date}`} x={lineX(index)} y={cumulativeLineY(day.cumulative) - 14} textAnchor="middle" fontSize="20" fill="#c0392b">{day.cumulative}</text>)}
+                {cumulativeDaily.map((day, index) => <text key={`cumulative-label-${day.date}`} x={lineX(index)} y={LINE_CHART_HEIGHT - 12} textAnchor="middle" fontSize="14" fill="#2d241f">{shortDate(day.date)}</text>)}
               </svg>
             </div>
           </>}
