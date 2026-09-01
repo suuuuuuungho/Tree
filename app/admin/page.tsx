@@ -300,12 +300,14 @@ export default function AdminPage() {
     const dates = Array.from(new Set(rows.map((row) => row.date))).sort();
     const names = Array.from(new Set(rows.map((row) => row.name)));
     const matrix = new Map<string, Map<string, number>>();
-    for (const name of names) matrix.set(name, new Map());
+    const totals = new Map<string, number>();
+    for (const name of names) { matrix.set(name, new Map()); totals.set(name, 0); }
     for (const row of rows) {
       const nameMap = matrix.get(row.name)!;
       nameMap.set(row.date, (nameMap.get(row.date) ?? 0) + row.prayerCount);
+      totals.set(row.name, (totals.get(row.name) ?? 0) + row.prayerCount);
     }
-    return { dates, names, matrix };
+    return { dates, names, matrix, totals };
   }, [entries, selectedClass]);
 
   if (checking) return <main className="adminMain"><p>불러오는 중...</p></main>;
@@ -489,11 +491,12 @@ export default function AdminPage() {
                     {classTable.names.length === 0 ? <p className="adminDetailEmpty">기록 없음</p> : <div className="classTableScroll">
                       <table className="classTable">
                         <thead>
-                          <tr><th>이름</th>{classTable.dates.map((date) => <th key={date}>{shortDate(date)}</th>)}</tr>
+                          <tr><th>이름</th><th className="classTableTotal">총합</th>{classTable.dates.map((date) => <th key={date}>{shortDate(date)}</th>)}</tr>
                         </thead>
                         <tbody>
                           {classTable.names.map((name) => <tr key={name}>
                             <td>{name}</td>
+                            <td className="classTableTotal">{classTable.totals.get(name) ?? 0}</td>
                             {classTable.dates.map((date) => <td key={date}>{classTable.matrix.get(name)?.get(date) ?? "-"}</td>)}
                           </tr>)}
                         </tbody>
@@ -516,11 +519,12 @@ export default function AdminPage() {
                 {classTable.names.length === 0 ? <p className="adminDetailEmpty">기록 없음</p> : <div className="classTableScroll">
                   <table className="classTable">
                     <thead>
-                      <tr><th>이름</th>{classTable.dates.map((date) => <th key={date}>{shortDate(date)}</th>)}</tr>
+                      <tr><th>이름</th><th className="classTableTotal">총합</th>{classTable.dates.map((date) => <th key={date}>{shortDate(date)}</th>)}</tr>
                     </thead>
                     <tbody>
                       {classTable.names.map((name) => <tr key={name}>
                         <td>{name}</td>
+                        <td className="classTableTotal">{classTable.totals.get(name) ?? 0}</td>
                         {classTable.dates.map((date) => <td key={date}>{classTable.matrix.get(name)?.get(date) ?? "-"}</td>)}
                       </tr>)}
                     </tbody>
