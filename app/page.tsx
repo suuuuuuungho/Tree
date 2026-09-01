@@ -52,6 +52,8 @@ export default function Home() {
   const [schoolGroup, setSchoolGroup] = useState("");
   const [studentName, setStudentName] = useState("");
   const [prayerDate, setPrayerDate] = useState("");
+  const [minPrayerDate, setMinPrayerDate] = useState("");
+  const [maxPrayerDate, setMaxPrayerDate] = useState("");
   const [ranking, setRanking] = useState<RankingEntry[]>([]);
   const [prayerMinutes, setPrayerMinutes] = useState("");
   const [customMinutes, setCustomMinutes] = useState("");
@@ -80,11 +82,16 @@ export default function Home() {
       window.localStorage.removeItem("prayer-tree-profile");
     }
 
+    const toDateInput = (date: Date) => {
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    setPrayerDate(`${yyyy}-${mm}-${dd}`);
+    setPrayerDate(toDateInput(today));
+    setMaxPrayerDate(toDateInput(today));
+    setMinPrayerDate(toDateInput(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6)));
 
     fetch("/api/prayers").then(async (response) => await response.json() as { configured?: boolean; total?: number }).then((data) => {
       if (data.configured && typeof data.total === "number") setTotalCount(data.total);
@@ -154,14 +161,14 @@ export default function Home() {
     }
   };
 
-  const performSubmit = async (date: string, force = false) => {
+  const performSubmit = async (date: string) => {
     setSubmitting(true);
     window.localStorage.setItem("prayer-tree-profile", JSON.stringify({ schoolGroup, name: studentName }));
     try {
       const response = await fetch("/api/prayers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ schoolGroup, name: studentName, prayerDate: date, prayerCount, force }),
+        body: JSON.stringify({ schoolGroup, name: studentName, prayerDate: date, prayerCount }),
       });
       if (response.status === 409) {
         setDailyWarning({ date });
@@ -259,7 +266,7 @@ export default function Home() {
 
       <label className="field">
         <span>날짜</span>
-        <input name="prayerDate" type="date" value={prayerDate} onChange={(event) => { setPrayerDate(event.target.value); setSaved(false); }} required />
+        <input name="prayerDate" type="date" value={prayerDate} min={minPrayerDate} max={maxPrayerDate} onChange={(event) => { setPrayerDate(event.target.value); setSaved(false); }} required />
       </label>
 
       {isStaff && <label className="field">
@@ -309,10 +316,8 @@ export default function Home() {
 
     {showMyStatus && <MyStatusModal onClose={() => setShowMyStatus(false)} />}
     {dailyWarning && <DailyLimitModal
-      schoolGroup={schoolGroup} name={studentName} date={dailyWarning.date} pendingCount={prayerCount}
-      proceeding={submitting}
+      schoolGroup={schoolGroup} name={studentName} date={dailyWarning.date}
       onClose={() => setDailyWarning(null)}
-      onProceed={() => performSubmit(dailyWarning.date, true)}
     />}
   </main>;
 }

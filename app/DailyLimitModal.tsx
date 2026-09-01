@@ -8,13 +8,10 @@ type Props = {
   schoolGroup: string;
   name: string;
   date: string;
-  pendingCount: number;
-  proceeding: boolean;
   onClose: () => void;
-  onProceed: () => void;
 };
 
-export default function DailyLimitModal({ schoolGroup, name, date, pendingCount, proceeding, onClose, onProceed }: Props) {
+export default function DailyLimitModal({ schoolGroup, name, date, onClose }: Props) {
   const [records, setRecords] = useState<DailyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [editCounts, setEditCounts] = useState<Record<string, number>>({});
@@ -76,13 +73,13 @@ export default function DailyLimitModal({ schoolGroup, name, date, pendingCount,
   return <div className="myStatusOverlay" role="dialog" aria-modal="true" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="myStatusSheet">
       <div className="myStatusHeader">
-        <h2>하루 기도 한도 안내</h2>
+        <h2>오늘은 이미 기록하셨어요</h2>
         <button type="button" className="myStatusClose" onClick={onClose} aria-label="닫기">✕</button>
       </div>
 
       <p className="myStatusHint">
         {date}에 <strong>{schoolGroup} {name}</strong>님은 이미 <strong>{existingTotal}회</strong>를 기록하셨어요.
-        지금 {pendingCount}회를 더하면 하루 한도(10회)를 넘어가요. 오늘 기록을 확인하고 수정하거나 삭제할 수 있어요.
+        하루에 한 번만 제출할 수 있어서 추가 제출은 안 돼요. 아래에서 오늘 기록을 수정하거나 삭제할 수 있어요.
       </p>
 
       {actionError && <p className="adminError">{actionError}</p>}
@@ -102,10 +99,7 @@ export default function DailyLimitModal({ schoolGroup, name, date, pendingCount,
         </div>)}
       </div>}
 
-      <div className="dailyLimitActions">
-        <button type="button" className="myStatusBack" onClick={onClose}>취소</button>
-        <button type="button" className="submitButton" onClick={onProceed} disabled={proceeding}>{proceeding ? "기록 중..." : `그래도 ${pendingCount}회 기록하기`}</button>
-      </div>
+      <button type="button" className="submitButton dailyLimitConfirm" onClick={onClose}>확인</button>
     </div>
   </div>;
 }
