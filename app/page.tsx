@@ -11,6 +11,7 @@ const RANKING_PAGE_SIZE = 20;
 
 type RankingEntry = { schoolGroup: string; name: string; total: number };
 type RankedEntry = RankingEntry & { rank: number };
+type TodayRecord = { id: string; prayerCount: number };
 
 const STAFF_GROUPS = ["교사", "교역자"];
 const DURATION_OPTIONS = Array.from({ length: 10 }, (_, index) => (index + 1) * 30);
@@ -63,6 +64,12 @@ export default function Home() {
   const [showMyStatus, setShowMyStatus] = useState(false);
   const [dailyWarning, setDailyWarning] = useState<{ date: string } | null>(null);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
+  const [todayRecords, setTodayRecords] = useState<TodayRecord[]>([]);
+  const [editTodayCounts, setEditTodayCounts] = useState<Record<string, number>>({});
+  const [savingTodayId, setSavingTodayId] = useState<string | null>(null);
+  const [deletingTodayId, setDeletingTodayId] = useState<string | null>(null);
+  const [todayActionError, setTodayActionError] = useState("");
+  const [todaySavedMessage, setTodaySavedMessage] = useState("");
 
   const isStaff = STAFF_GROUPS.includes(schoolGroup);
 
@@ -75,9 +82,28 @@ export default function Home() {
     }).catch(() => undefined);
   };
 
+  const refreshTotal = () => {
+    fetch("/api/prayers").then(async (response) => await response.json() as { configured?: boolean; total?: number }).then((data) => {
+      if (data.configured && typeof data.total === "number") setTotalCount(data.total);
+      else {
+        const storedCount = Number(window.localStorage.getItem("prayer-tree-total") ?? 0);
+        if (Number.isFinite(storedCount)) setTotalCount(Math.min(Math.max(storedCount, 0), GOAL));
+      }
+    }).catch(() => undefined);
+  };
+
+  const refreshTodayRecords = (group: string, name: string, date: string) => {
+    if (!group || !name || !date) { setTodayRecords([]); return; }
+    fetch(`/api/prayers/day?schoolGroup=${encodeURIComponent(group)}&name=${encodeURIComponent(name)}&date=${date}`)
+      .then(async (response) => await response.json() as { configured?: boolean; records?: TodayRecord[] })
+      .then((data) => setTodayRecords(data.configured ? (data.records ?? []) : []))
+      .catch(() => undefined);
+  };
+
   useEffect(() => {
+    let profile: { schoolGroup?: string; name?: string } | null = null;
     try {
-      const profile = JSON.parse(window.localStorage.getItem("prayer-tree-profile") ?? "null") as { schoolGroup?: string; name?: string } | null;
+      profile = JSON.parse(window.localStorage.getItem("prayer-tree-profile") ?? "null") as { schoolGroup?: string; name?: string } | null;
       if (profile?.schoolGroup) setSchoolGroup(profile.schoolGroup);
       if (profile?.name) setStudentName(profile.name);
     } catch {
@@ -91,18 +117,14 @@ export default function Home() {
       return `${yyyy}-${mm}-${dd}`;
     };
     const today = new Date();
-    setPrayerDate(toDateInput(today));
-    setMaxPrayerDate(toDateInput(today));
+    const todayStr = toDateInput(today);
+    setPrayerDate(todayStr);
+    setMaxPrayerDate(todayStr);
     setMinPrayerDate(toDateInput(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6)));
 
-    fetch("/api/prayers").then(async (response) => await response.json() as { configured?: boolean; total?: number }).then((data) => {
-      if (data.configured && typeof data.total === "number") setTotalCount(data.total);
-      else {
-        const storedCount = Number(window.localStorage.getItem("prayer-tree-total") ?? 0);
-        if (Number.isFinite(storedCount)) setTotalCount(Math.min(Math.max(storedCount, 0), GOAL));
-      }
-    }).catch(() => undefined);
+    if (profile?.schoolGroup && profile?.name) refreshTodayRecords(profile.schoolGroup, profile.name, todayStr);
 
+    refreshTotal();
     fetchRanking();
 
     if (shouldShowAnnouncement()) setShowAnnouncement(true);
@@ -182,6 +204,7 @@ export default function Home() {
       const data = await response.json() as { total: number };
       setTotalCount(data.total);
       fetchRanking();
+      if (date === maxPrayerDate) refreshTodayRecords(schoolGroup, studentName, date);
       setSaved(true);
       setDailyWarning(null);
     } catch {
@@ -200,6 +223,47 @@ export default function Home() {
     const form = new FormData(event.currentTarget);
     const date = String(form.get("prayerDate"));
     await performSubmit(date);
+  };
+
+  const handleSaveToday = async (record: TodayRecord) => {
+    setSavingTodayId(record.id);
+    setTodayActionError("");
+    setTodaySavedMessage("");
+    try {
+      const response = await fetch(`/api/prayers/${record.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schoolGroup, name: studentName, date: maxPrayerDate, prayerCount: editTodayCounts[record.id] ?? record.prayerCount }),
+      });
+      if (!response.ok) { setTodayActionError("저장에 실패했어요."); return; }
+      refreshTodayRecords(schoolGroup, studentName, maxPrayerDate);
+      refreshTotal();
+      fetchRanking();
+      setTodaySavedMessage("저장했어요.");
+    } finally {
+      setSavingTodayId(null);
+    }
+  };
+
+  const handleDeleteToday = async (record: TodayRecord) => {
+    if (!window.confirm(`${record.prayerCount}회 기록을 삭제할까요?`)) return;
+    setDeletingTodayId(record.id);
+    setTodayActionError("");
+    setTodaySavedMessage("");
+    try {
+      const response = await fetch(`/api/prayers/${record.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schoolGroup, name: studentName }),
+      });
+      if (!response.ok) { setTodayActionError("삭제에 실패했어요."); return; }
+      setSaved(false);
+      refreshTodayRecords(schoolGroup, studentName, maxPrayerDate);
+      refreshTotal();
+      fetchRanking();
+    } finally {
+      setDeletingTodayId(null);
+    }
   };
 
   return <main>
@@ -245,7 +309,30 @@ export default function Home() {
 
     <button type="button" className="myStatusOpenButton" onClick={() => setShowMyStatus(true)}>내 기도 현황 확인하기</button>
 
-    <form className="prayerForm" onSubmit={submitPrayer}>
+    {todayRecords.length > 0 ? <div className="prayerForm">
+      <div className="formHeader">
+        <h2>오늘 제출 현황</h2>
+        <span className="todayBadge">오늘의 한 걸음</span>
+      </div>
+
+      <p className="myStatusHint"><strong>{schoolGroup} {studentName}</strong>님, {maxPrayerDate}에 기도를 기록하셨어요. 아래에서 수정하거나 삭제할 수 있어요.</p>
+
+      {todayActionError && <p className="adminError">{todayActionError}</p>}
+      {todaySavedMessage && <p className="successMessage" role="status" aria-live="polite">{todaySavedMessage}</p>}
+
+      {todayRecords.map((record) => <div className="myStatusRecordRow" key={record.id}>
+        <select
+          value={editTodayCounts[record.id] ?? record.prayerCount}
+          onChange={(event) => { setEditTodayCounts((prev) => ({ ...prev, [record.id]: Number(event.target.value) })); setTodaySavedMessage(""); }}
+        >
+          {Array.from({ length: 10 }, (_, index) => index + 1).map((count) => <option key={count} value={count}>{count}회</option>)}
+        </select>
+        <div className="recordsActions">
+          <button type="button" onClick={() => handleSaveToday(record)} disabled={savingTodayId === record.id}>{savingTodayId === record.id ? "저장 중..." : "저장"}</button>
+          <button type="button" className="danger" onClick={() => handleDeleteToday(record)} disabled={deletingTodayId === record.id}>{deletingTodayId === record.id ? "삭제 중..." : "삭제"}</button>
+        </div>
+      </div>)}
+    </div> : <form className="prayerForm" onSubmit={submitPrayer}>
       <div className="formHeader">
         <h2>나의 기도 기록</h2>
         <span className="todayBadge">오늘의 한 걸음</span>
@@ -296,7 +383,7 @@ export default function Home() {
 
       <button className="submitButton" type="submit" disabled={submitting}>{submitting ? "기록 중..." : saved ? `${prayerCount}회 기도 기록 완료` : "기도 기록하기"}</button>
       {saved && <p className="successMessage" role="status" aria-live="polite">기도 {prayerCount}회가 잘 기록되었어요!</p>}
-    </form>
+    </form>}
 
     <section className="ranking" aria-labelledby="ranking-title">
       <h2 id="ranking-title">기도 나무를 만들어가는 사람들</h2>
