@@ -2,6 +2,9 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import MyStatusModal from "./MyStatusModal";
+import DailyLimitModal from "./DailyLimitModal";
+
+const DAILY_LIMIT = 10;
 
 const GOAL = 5000;
 const LEAF_COUNT = 60;
@@ -57,6 +60,7 @@ export default function Home() {
   const [countdown, setCountdown] = useState<Countdown | null>(null);
   const [rankingPage, setRankingPage] = useState(0);
   const [showMyStatus, setShowMyStatus] = useState(false);
+  const [dailyWarning, setDailyWarning] = useState<{ date: string } | null>(null);
 
   const isStaff = STAFF_GROUPS.includes(schoolGroup);
 
@@ -101,17 +105,12 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  const rankedEntries = useMemo<RankedEntry[]>(() => {
-    let rank = 0;
-    let previousTotal: number | null = null;
-    return ranking.map((entry, index) => {
-      if (entry.total !== previousTotal) {
-        rank = index + 1;
-        previousTotal = entry.total;
-      }
-      return { ...entry, rank };
-    });
-  }, [ranking]);
+  const rankedEntries = useMemo<RankedEntry[]>(
+    // `ranking` is already sorted by total desc, so equal totals are contiguous:
+    // the first index sharing a total is exactly its competition rank.
+    () => ranking.map((entry) => ({ ...entry, rank: ranking.findIndex((other) => other.total === entry.total) + 1 })),
+    [ranking],
+  );
 
   const rankingPageCount = Math.max(1, Math.ceil(rankedEntries.length / RANKING_PAGE_SIZE));
   const rankingPageItems = useMemo(
@@ -157,16 +156,14 @@ export default function Home() {
     }
   };
 
-  const submitPrayer = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const performSubmit = async (date: string) => {
     setSubmitting(true);
-    const form = new FormData(event.currentTarget);
     window.localStorage.setItem("prayer-tree-profile", JSON.stringify({ schoolGroup, name: studentName }));
     try {
       const response = await fetch("/api/prayers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ schoolGroup, name: studentName, prayerDate: form.get("prayerDate"), prayerCount }),
+        body: JSON.stringify({ schoolGroup, name: studentName, prayerDate: date, prayerCount }),
       });
       if (!response.ok) throw new Error("database unavailable");
       const data = await response.json() as { total: number };
@@ -179,7 +176,27 @@ export default function Home() {
     } finally {
       setSaved(true);
       setSubmitting(false);
+      setDailyWarning(null);
     }
+  };
+
+  const submitPrayer = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const date = String(form.get("prayerDate"));
+    setSubmitting(true);
+    try {
+      const dayResponse = await fetch(`/api/prayers/day?schoolGroup=${encodeURIComponent(schoolGroup)}&name=${encodeURIComponent(studentName)}&date=${date}`);
+      const dayData = await dayResponse.json() as { configured?: boolean; total?: number };
+      if (dayData.configured && (dayData.total ?? 0) + prayerCount >= DAILY_LIMIT) {
+        setSubmitting(false);
+        setDailyWarning({ date });
+        return;
+      }
+    } catch {
+      // If the check itself fails, fall through and submit normally.
+    }
+    await performSubmit(date);
   };
 
   return <main>
@@ -299,5 +316,11 @@ export default function Home() {
     <p className="closing">기도가 쌓일수록 우리의 나무가 자라납니다.</p>
 
     {showMyStatus && <MyStatusModal onClose={() => setShowMyStatus(false)} />}
+    {dailyWarning && <DailyLimitModal
+      schoolGroup={schoolGroup} name={studentName} date={dailyWarning.date} pendingCount={prayerCount}
+      proceeding={submitting}
+      onClose={() => setDailyWarning(null)}
+      onProceed={() => performSubmit(dailyWarning.date)}
+    />}
   </main>;
 }
