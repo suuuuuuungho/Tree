@@ -4,8 +4,6 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import MyStatusModal from "./MyStatusModal";
 import DailyLimitModal from "./DailyLimitModal";
 
-const DAILY_LIMIT = 10;
-
 const GOAL = 5000;
 const LEAF_COUNT = 60;
 const RANKING_PAGE_SIZE = 20;
@@ -156,27 +154,33 @@ export default function Home() {
     }
   };
 
-  const performSubmit = async (date: string) => {
+  const performSubmit = async (date: string, force = false) => {
     setSubmitting(true);
     window.localStorage.setItem("prayer-tree-profile", JSON.stringify({ schoolGroup, name: studentName }));
     try {
       const response = await fetch("/api/prayers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ schoolGroup, name: studentName, prayerDate: date, prayerCount }),
+        body: JSON.stringify({ schoolGroup, name: studentName, prayerDate: date, prayerCount, force }),
       });
+      if (response.status === 409) {
+        setDailyWarning({ date });
+        return;
+      }
       if (!response.ok) throw new Error("database unavailable");
       const data = await response.json() as { total: number };
       setTotalCount(data.total);
       fetchRanking();
+      setSaved(true);
+      setDailyWarning(null);
     } catch {
       const nextTotal = Math.min(totalCount + prayerCount, GOAL);
       setTotalCount(nextTotal);
       window.localStorage.setItem("prayer-tree-total", String(nextTotal));
-    } finally {
       setSaved(true);
-      setSubmitting(false);
       setDailyWarning(null);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -184,18 +188,6 @@ export default function Home() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const date = String(form.get("prayerDate"));
-    setSubmitting(true);
-    try {
-      const dayResponse = await fetch(`/api/prayers/day?schoolGroup=${encodeURIComponent(schoolGroup)}&name=${encodeURIComponent(studentName)}&date=${date}`);
-      const dayData = await dayResponse.json() as { configured?: boolean; total?: number };
-      if (dayData.configured && (dayData.total ?? 0) + prayerCount >= DAILY_LIMIT) {
-        setSubmitting(false);
-        setDailyWarning({ date });
-        return;
-      }
-    } catch {
-      // If the check itself fails, fall through and submit normally.
-    }
     await performSubmit(date);
   };
 
@@ -320,7 +312,7 @@ export default function Home() {
       schoolGroup={schoolGroup} name={studentName} date={dailyWarning.date} pendingCount={prayerCount}
       proceeding={submitting}
       onClose={() => setDailyWarning(null)}
-      onProceed={() => performSubmit(dailyWarning.date)}
+      onProceed={() => performSubmit(dailyWarning.date, true)}
     />}
   </main>;
 }
