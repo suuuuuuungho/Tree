@@ -37,7 +37,7 @@ export default function AnnouncementModal({ onClose }: { onClose: () => void }) 
   return <div className="myStatusOverlay" role="dialog" aria-modal="true" onClick={(event) => { if (event.target === event.currentTarget) handleClose(); }}>
     <div className="myStatusSheet">
       <div className="myStatusHeader">
-        <h2>안내: 기도 기록 방식이 바뀌었어요</h2>
+        <h2>[공지] 기도 기록 방식 안내</h2>
         <button type="button" className="myStatusClose" onClick={handleClose} aria-label="닫기">✕</button>
       </div>
 
